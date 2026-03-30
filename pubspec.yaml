@@ -1,0 +1,45 @@
+name: palm_harvest_app
+description: Sistem Manajemen Pemanenan Sawit
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+  
+  # Routing
+  go_router: ^14.0.0
+
+  # Backend & Offline DB
+  supabase_flutter: ^2.5.0
+  sqflite: ^2.3.0
+  path_provider: ^2.1.2
+  path: ^1.9.0
+  shared_preferences: ^2.2.2
+
+  # Utilities
+  fl_chart: ^0.68.0
+  intl: ^0.20.2
+  uuid: ^4.3.3
+  excel: any
+  pdf: ^3.10.8
+  printing: ^5.11.1
+  
+  # UI/UX Additions
+  google_fonts: ^6.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
