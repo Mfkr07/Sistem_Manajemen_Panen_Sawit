@@ -1,220 +1,142 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/theme/app_colors.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
-
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final _emailCtl = TextEditingController();
+  final _passCtl = TextEditingController();
   bool _isLoading = false;
-  bool _obscurePassword = true;
-  String? _errorMessage;
+  bool _obscure = true;
+  String? _error;
 
   @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
+  void dispose() { _emailCtl.dispose(); _passCtl.dispose(); super.dispose(); }
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
+    setState(() { _isLoading = true; _error = null; });
     try {
-      final response = await Supabase.instance.client.auth.signInWithPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
-
+      final resp = await Supabase.instance.client.auth.signInWithPassword(
+        email: _emailCtl.text.trim(), password: _passCtl.text);
       if (!mounted) return;
-
-      final userId = response.user?.id;
-      if (userId == null) {
-        setState(() {
-          _errorMessage = 'Login gagal. Coba lagi.';
-          _isLoading = false;
-        });
-        return;
-      }
-
-      // Get user role from users table
-      final userData = await Supabase.instance.client
-          .from('users')
-          .select('role')
-          .eq('id', userId)
-          .single();
-
+      final uid = resp.user?.id;
+      if (uid == null) { setState(() { _error = 'Login gagal.'; _isLoading = false; }); return; }
+      final data = await Supabase.instance.client.from('users').select('role').eq('id', uid).single();
       if (!mounted) return;
-
-      final role = userData['role'] as String?;
-      if (role == 'admin') {
-        context.go('/admin');
-      } else {
-        context.go('/stakeholder');
-      }
+      context.go(data['role'] == 'admin' ? '/admin' : '/stakeholder');
     } on AuthException catch (e) {
-      setState(() {
-        _errorMessage = e.message;
-        _isLoading = false;
-      });
+      setState(() { _error = e.message; _isLoading = false; });
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Terjadi kesalahan: $e';
-        _isLoading = false;
-      });
+      setState(() { _error = 'Terjadi kesalahan: $e'; _isLoading = false; });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = context.dc;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(32.0),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Card(
-                elevation: 8,
-                shadowColor: Colors.black26,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Logo / Icon
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).primaryColor.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.eco,
-                            size: 56,
-                            color: Theme.of(context).primaryColor,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Sistem Manajemen\nPemanenan Sawit',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Masuk ke akun Anda',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        const SizedBox(height: 32),
-
-                        // Error message
-                        if (_errorMessage != null) ...[
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.red.shade200),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    _errorMessage!,
-                                    style: TextStyle(color: Colors.red.shade700, fontSize: 13),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-
-                        // Email field
-                        TextFormField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(
-                            labelText: 'Email',
-                            prefixIcon: Icon(Icons.email_outlined),
-                          ),
-                          validator: (val) {
-                            if (val == null || val.isEmpty) return 'Email wajib diisi';
-                            if (!val.contains('@')) return 'Format email tidak valid';
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Password field
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: _obscurePassword,
-                          decoration: InputDecoration(
-                            labelText: 'Password',
-                            prefixIcon: const Icon(Icons.lock_outlined),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                              ),
-                              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                            ),
-                          ),
-                          validator: (val) {
-                            if (val == null || val.isEmpty) return 'Password wajib diisi';
-                            return null;
-                          },
-                          onFieldSubmitted: (_) => _login(),
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Login button
-                        SizedBox(
-                          height: 48,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _login,
-                            child: _isLoading
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text('Masuk'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: isDark
+                ? [const Color(0xFF0B0F19), const Color(0xFF111827), const Color(0xFF0B0F19)]
+                : [const Color(0xFFF0F9FF), const Color(0xFFECFDF5), const Color(0xFFF0F9FF)],
+            begin: Alignment.topLeft, end: Alignment.bottomRight,
           ),
         ),
+        child: SafeArea(child: Center(child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 400),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // Logo
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: AppColors.gradientPrimary, shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 24, offset: const Offset(0, 8))],
+                ),
+                child: const Icon(Icons.eco_rounded, size: 44, color: Colors.white),
+              ),
+              const SizedBox(height: 24),
+              Text('Sistem Manajemen\nPemanenan Sawit', textAlign: TextAlign.center,
+                style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w800, color: c.textPrimary, height: 1.3)),
+              const SizedBox(height: 8),
+              Text('Masuk ke akun Anda', style: GoogleFonts.inter(fontSize: 14, color: c.textMuted)),
+              const SizedBox(height: 32),
+              // Card
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: c.surface, borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: c.border),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.2 : 0.06), blurRadius: 32, offset: const Offset(0, 16))],
+                ),
+                child: Form(key: _formKey, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  if (_error != null) ...[
+                    Container(padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: AppColors.rose.withOpacity(0.1), borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.rose.withOpacity(0.25))),
+                      child: Row(children: [
+                        const Icon(Icons.error_outline_rounded, color: AppColors.rose, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(_error!, style: GoogleFonts.inter(color: AppColors.rose, fontSize: 13)))])),
+                    const SizedBox(height: 16),
+                  ],
+                  // Email
+                  Text('Email', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: c.textSecondary)),
+                  const SizedBox(height: 8),
+                  TextFormField(controller: _emailCtl, keyboardType: TextInputType.emailAddress,
+                    style: GoogleFonts.inter(color: c.textPrimary),
+                    decoration: InputDecoration(hintText: 'nama@email.com',
+                      prefixIcon: Icon(Icons.email_outlined, size: 20, color: c.textMuted),
+                      filled: true, fillColor: c.surfaceLight,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: c.border)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: c.border)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 2))),
+                    validator: (v) { if (v == null || v.isEmpty) return 'Email wajib diisi'; if (!v.contains('@')) return 'Format email tidak valid'; return null; }),
+                  const SizedBox(height: 16),
+                  // Password
+                  Text('Password', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: c.textSecondary)),
+                  const SizedBox(height: 8),
+                  TextFormField(controller: _passCtl, obscureText: _obscure,
+                    style: GoogleFonts.inter(color: c.textPrimary),
+                    decoration: InputDecoration(hintText: '••••••••',
+                      prefixIcon: Icon(Icons.lock_outlined, size: 20, color: c.textMuted),
+                      suffixIcon: IconButton(
+                        icon: Icon(_obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 20, color: c.textMuted),
+                        onPressed: () => setState(() => _obscure = !_obscure)),
+                      filled: true, fillColor: c.surfaceLight,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: c.border)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: c.border)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 2))),
+                    validator: (v) { if (v == null || v.isEmpty) return 'Password wajib diisi'; return null; },
+                    onFieldSubmitted: (_) => _login()),
+                  const SizedBox(height: 24),
+                  // Button
+                  Container(height: 50,
+                    decoration: BoxDecoration(gradient: AppColors.gradientPrimary, borderRadius: BorderRadius.circular(12),
+                      boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))]),
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                      onPressed: _isLoading ? null : _login,
+                      child: _isLoading
+                          ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : Text('Masuk', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15, color: Colors.white)))),
+                ])),
+              ),
+            ])),
+        ))),
       ),
     );
   }

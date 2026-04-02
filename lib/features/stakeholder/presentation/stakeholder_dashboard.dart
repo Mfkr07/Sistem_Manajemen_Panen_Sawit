@@ -1,60 +1,58 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../shared/presentation/harvest_history_page.dart';
 import '../../../core/repositories/harvest_repository.dart';
 import '../../../core/repositories/land_repository.dart';
 import '../../../core/models/models.dart';
 import '../../../core/services/export_service.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/theme_provider.dart';
 
-class StakeholderDashboardPage extends StatefulWidget {
+class StakeholderDashboardPage extends ConsumerStatefulWidget {
   const StakeholderDashboardPage({super.key});
-
   @override
-  State<StakeholderDashboardPage> createState() => _StakeholderDashboardPageState();
+  ConsumerState<StakeholderDashboardPage> createState() => _StakeholderState();
 }
 
-class _StakeholderDashboardPageState extends State<StakeholderDashboardPage> {
-  final HarvestRepository _harvestRepo = HarvestRepository();
-  final LandRepository _landRepo = LandRepository();
-
+class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
   List<HarvestModel> _harvests = [];
   List<LandModel> _myLands = [];
   Map<String, String> _landNameMap = {};
   bool _isLoading = true;
-  String? _currentUserId;
-  String _currentUserEmail = '';
-  String _currentUserName = '';
+  String? _uid;
+  String _email = '';
+  String _name = '';
+  int _tabIndex = 0;
 
-  // Chart timeframe
-  String _chartTimeframe = '1 Bulan';
-  final List<String> _chartTimeframes = ['2 Minggu', '1 Bulan', '3 Bulan'];
+  String _chartTf = '2 Minggu';
+  final List<String> _tfs = ['Harian', '2 Minggu', '1 Bulan', '3 Bulan'];
+  late int _selMonth;
+  late int _selYear;
 
-  // Monthly total
-  late int _selectedMonth;
-  late int _selectedYear;
+  // History filter
+  String _histFilter = 'Semua';
+  DateTime? _histStart;
+  DateTime? _histEnd;
 
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
-    _selectedMonth = now.month;
-    _selectedYear = now.year;
-    final user = Supabase.instance.client.auth.currentUser;
-    _currentUserId = user?.id;
-    _currentUserEmail = user?.email ?? '';
-    _loadData();
-    _loadProfile();
+    _selMonth = now.month; _selYear = now.year;
+    final u = Supabase.instance.client.auth.currentUser;
+    _uid = u?.id; _email = u?.email ?? '';
+    _loadData(); _loadProfile();
   }
 
   Future<void> _loadProfile() async {
     try {
-      if (_currentUserId != null) {
-        final data = await Supabase.instance.client
-            .from('users').select('name').eq('id', _currentUserId!).single();
-        if (mounted) setState(() => _currentUserName = data['name'] ?? '');
+      if (_uid != null) {
+        final d = await Supabase.instance.client.from('users').select('name').eq('id', _uid!).single();
+        if (mounted) setState(() => _name = d['name'] ?? '');
       }
     } catch (_) {}
   }
@@ -62,15 +60,15 @@ class _StakeholderDashboardPageState extends State<StakeholderDashboardPage> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      if (_currentUserId == null) { setState(() => _isLoading = false); return; }
-      _myLands = await _landRepo.getLandsByStakeholder(_currentUserId!);
+      if (_uid == null) { setState(() => _isLoading = false); return; }
+      _myLands = await LandRepository().getLandsByStakeholder(_uid!);
       _landNameMap = {for (var l in _myLands) l.id: l.name};
-      final landIds = _myLands.map((l) => l.id).toList();
-      _harvests = landIds.isNotEmpty ? await _harvestRepo.getHarvestsByLandIds(landIds) : [];
+      final ids = _myLands.map((l) => l.id).toList();
+      _harvests = ids.isNotEmpty ? await HarvestRepository().getHarvestsByLandIds(ids) : [];
       setState(() => _isLoading = false);
     } catch (e) {
       setState(() => _isLoading = false);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal memuat data: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal: $e')));
     }
   }
 
@@ -79,367 +77,519 @@ class _StakeholderDashboardPageState extends State<StakeholderDashboardPage> {
     if (mounted) context.go('/login');
   }
 
-  // ============================================================
-  // HELPERS
-  // ============================================================
-
-  double get _selectedMonthTotal {
-    return _harvests.where((h) =>
-        h.harvestDate.month == _selectedMonth && h.harvestDate.year == _selectedYear
-    ).fold(0.0, (sum, h) => sum + h.weightKg);
+  double get _monthTotal => _harvests
+      .where((h) => h.harvestDate.month == _selMonth && h.harvestDate.year == _selYear)
+      .fold(0.0, (s, h) => s + h.weightKg);
+  String get _monthLabel {
+    const m = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'];
+    return '${m[_selMonth - 1]} $_selYear';
   }
-
-  String get _selectedMonthLabel {
-    final months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-    return '${months[_selectedMonth - 1]} $_selectedYear';
-  }
-
-  List<HarvestModel> get _chartHarvests {
-    final now = DateTime.now();
-    late DateTime cutoff;
-    switch (_chartTimeframe) {
-      case '2 Minggu': cutoff = now.subtract(const Duration(days: 14)); break;
-      case '1 Bulan': cutoff = DateTime(now.year, now.month - 1, now.day); break;
-      case '3 Bulan': cutoff = DateTime(now.year, now.month - 3, now.day); break;
-      default: cutoff = DateTime(now.year, now.month - 1, now.day);
+  double get _totalAll => _harvests.fold(0.0, (s, h) => s + h.weightKg);
+  List<HarvestModel> get _filteredHist {
+    if (_histStart != null && _histEnd != null) {
+      return _harvests.where((h) =>
+          h.harvestDate.isAfter(_histStart!.subtract(const Duration(days: 1))) &&
+          h.harvestDate.isBefore(_histEnd!.add(const Duration(days: 1)))).toList();
     }
-    return _harvests.where((h) => h.harvestDate.isAfter(cutoff)).toList();
+    return List.of(_harvests);
   }
-
-  // ============================================================
-  // BUILD
-  // ============================================================
 
   @override
   Widget build(BuildContext context) {
+    final c = context.dc;
+    final titles = ['Dashboard', 'Histori Panen', 'Lahan Saya', 'Profil'];
     return Scaffold(
-      drawer: _buildDrawer(context),
       appBar: AppBar(
-        title: const Text('Dashboard Stakeholder'),
-        backgroundColor: Colors.teal.shade700,
-        leading: Builder(
-          builder: (ctx) => IconButton(icon: const Icon(Icons.menu), tooltip: 'Menu',
-            onPressed: () => Scaffold.of(ctx).openDrawer()),
-        ),
+        automaticallyImplyLeading: false,
+        title: _tabIndex == 0
+            ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Halo, ${_name.isEmpty ? 'Stakeholder' : _name} 👋',
+                    style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: c.textPrimary)),
+                Text('Dashboard Stakeholder', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted)),
+              ])
+            : Text(titles[_tabIndex]),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: () { setState(() => _isLoading = true); _loadData(); }),
+          if (_tabIndex == 0)
+            Padding(padding: const EdgeInsets.only(right: 8), child: IconButton(
+              icon: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(
+                  color: c.surfaceLight, borderRadius: BorderRadius.circular(10), border: Border.all(color: c.border)),
+                child: Icon(Icons.refresh_rounded, size: 18, color: c.textSecondary)),
+              onPressed: () { setState(() => _isLoading = true); _loadData(); })),
         ],
       ),
-      body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : RefreshIndicator(
-                onRefresh: _loadData,
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Lands horizontal list
-                      Text('Lahan Anda', style: Theme.of(context).textTheme.titleLarge),
-                      const SizedBox(height: 12),
-                      if (_myLands.isEmpty)
-                        Card(color: Colors.orange.shade50, child: const Padding(padding: EdgeInsets.all(16),
-                          child: Row(children: [Icon(Icons.info_outline, color: Colors.orange), SizedBox(width: 10),
-                            Expanded(child: Text('Belum ada lahan yang terdaftar atas nama Anda. Hubungi admin.'))])))
-                      else
-                        SizedBox(height: 100, child: ListView.separated(
-                          scrollDirection: Axis.horizontal, itemCount: _myLands.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 12),
-                          itemBuilder: (_, i) {
-                            final land = _myLands[i];
-                            final landTotal = _harvests.where((h) => h.landId == land.id).fold(0.0, (sum, h) => sum + h.weightKg);
-                            return SizedBox(width: 180, child: Card(elevation: 2, child: Padding(padding: const EdgeInsets.all(12),
-                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                Row(children: [
-                                  Icon(Icons.terrain, size: 16, color: Colors.teal.shade600), const SizedBox(width: 6),
-                                  Expanded(child: Text(land.name, style: const TextStyle(fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
-                                ]),
-                                const Spacer(),
-                                Text('${land.sizeHectares} Ha', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                                Text('${landTotal.toStringAsFixed(1)} KG', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade700)),
-                              ]))));
-                          },
-                        )),
-                      const SizedBox(height: 24),
-
-                      // Summary cards
-                      Row(children: [
-                        Expanded(child: _buildMonthlyTotalCard()),
-                        const SizedBox(width: 12),
-                        Expanded(child: _buildSummaryCard(context, 'Jumlah Lahan', '${_myLands.length}', Icons.terrain)),
-                      ]),
-                      const SizedBox(height: 24),
-
-                      // Chart with timeframe
-                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                        Text('Tren Panen', style: Theme.of(context).textTheme.titleLarge),
-                        Container(padding: const EdgeInsets.symmetric(horizontal: 8),
-                          decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
-                          child: DropdownButtonHideUnderline(child: DropdownButton<String>(
-                            value: _chartTimeframe, isDense: true,
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.teal.shade700),
-                            items: _chartTimeframes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                            onChanged: (v) { if (v != null) setState(() => _chartTimeframe = v); },
-                          ))),
-                      ]),
-                      const SizedBox(height: 12),
-                      SizedBox(height: 260,
-                        child: _chartHarvests.isEmpty
-                            ? Center(child: Text('Belum ada data pada periode $_chartTimeframe'))
-                            : _buildLineChart()),
-                      const SizedBox(height: 16),
-
-                      // Export
-                      SizedBox(width: double.infinity, child: OutlinedButton.icon(
-                        icon: const Icon(Icons.download), label: const Text('Export Rekapitulasi'),
-                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-                        onPressed: _harvests.isEmpty ? null : () => _showExportDialog(context),
-                      )),
-                      const SizedBox(height: 24),
-
-                      // Recent history (5 items)
-                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                        Text('Histori Panen Terkini', style: Theme.of(context).textTheme.titleLarge),
-                        TextButton.icon(icon: const Icon(Icons.arrow_forward, size: 16), label: const Text('Lihat Semua'),
-                          onPressed: () {
-                            Navigator.push(context, MaterialPageRoute(
-                              builder: (_) => HarvestHistoryPage(harvests: _harvests, landNameMap: _landNameMap, isAdmin: false),
-                            ));
-                          }),
-                      ]),
-                      const SizedBox(height: 8),
-                      if (_harvests.isEmpty)
-                        const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('Belum ada data panen')))
-                      else
-                        ..._harvests.take(5).map((h) => Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: Padding(padding: const EdgeInsets.all(12), child: Row(children: [
-                            Container(padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(color: Colors.teal.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                              child: Icon(Icons.grass, color: Colors.teal.shade600, size: 22)),
-                            const SizedBox(width: 12),
-                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(_landNameMap[h.landId] ?? h.landName ?? h.landId, style: const TextStyle(fontWeight: FontWeight.w600)),
-                              const SizedBox(height: 4),
-                              Text('Panen: ${DateFormat('dd MMM yyyy').format(h.harvestDate)}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                            ])),
-                            Text('${h.weightKg} KG', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal.shade700)),
-                          ])))),
-                    ],
-                  ),
-                ),
-              ),
+      body: SafeArea(child: _isLoading
+          ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const CircularProgressIndicator(), const SizedBox(height: 16),
+              Text('Memuat data...', style: GoogleFonts.inter(color: c.textMuted)),
+            ]))
+          : IndexedStack(index: _tabIndex, children: [
+              _homeTab(), _historyTab(), _landsTab(), _profileTab(),
+            ])),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _tabIndex,
+        onTap: (i) => setState(() => _tabIndex = i),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Beranda'),
+          BottomNavigationBarItem(icon: Icon(Icons.receipt_long_rounded), label: 'Histori'),
+          BottomNavigationBarItem(icon: Icon(Icons.terrain_rounded), label: 'Lahan'),
+          BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profil'),
+        ],
       ),
     );
   }
 
-  // ============================================================
-  // MONTHLY TOTAL CARD
-  // ============================================================
-
-  Widget _buildMonthlyTotalCard() {
-    final now = DateTime.now();
-    final isCurrentMonth = _selectedMonth == now.month && _selectedYear == now.year;
-
-    return GestureDetector(
-      onTap: () => _showMonthYearPicker(),
-      child: Card(child: Padding(padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-        child: Column(children: [
-          Icon(Icons.monitor_weight, size: 28, color: Colors.teal.shade600),
-          const SizedBox(height: 6),
-          Text('${_selectedMonthTotal.toStringAsFixed(1)} KG',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal.shade700)),
-          const SizedBox(height: 2),
-          Text(isCurrentMonth ? 'Panen Bulan Ini' : _selectedMonthLabel,
-              style: Theme.of(context).textTheme.bodySmall, textAlign: TextAlign.center),
-          const SizedBox(height: 2),
-          Icon(Icons.arrow_drop_down, size: 16, color: Colors.grey.shade500),
-        ]))),
-    );
+  // ═══════════════════════════════════════════════════
+  // TAB 0 – HOME
+  // ═══════════════════════════════════════════════════
+  Widget _homeTab() {
+    final c = context.dc;
+    return RefreshIndicator(color: AppColors.primary, backgroundColor: c.surface, onRefresh: _loadData,
+      child: SingleChildScrollView(physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // Lands scroll
+          _sec('Lahan Anda'),
+          const SizedBox(height: 12),
+          if (_myLands.isEmpty)
+            _infoBanner('Belum ada lahan terdaftar. Hubungi admin.', c)
+          else
+            SizedBox(height: 120, child: ListView.separated(scrollDirection: Axis.horizontal,
+              itemCount: _myLands.length, separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (_, i) => _landCard(_myLands[i], c))),
+          const SizedBox(height: 24),
+          // Stats
+          Row(children: [
+            Expanded(child: _stat(Icons.scale_rounded, '${_monthTotal.toStringAsFixed(1)}', 'KG',
+                _selMonth == DateTime.now().month && _selYear == DateTime.now().year ? 'Bulan Ini' : _monthLabel,
+                AppColors.gradientPrimary, onTap: _showMonthPicker, chevron: true)),
+            const SizedBox(width: 10),
+            Expanded(child: _stat(Icons.terrain_rounded, '${_myLands.length}', null, 'Lahan', AppColors.gradientViolet)),
+            const SizedBox(width: 10),
+            Expanded(child: _stat(Icons.inventory_2_rounded, '${_totalAll.toStringAsFixed(0)}', 'KG', 'Total',
+                const LinearGradient(colors: [AppColors.cyan, Color(0xFF38BDF8)]))),
+          ]),
+          const SizedBox(height: 24),
+          _sec('Tren Panen'), const SizedBox(height: 12),
+          _tfPills(c), const SizedBox(height: 12),
+          _harvests.isEmpty ? _empty('Belum ada data', Icons.show_chart_rounded, c) : _chart(c),
+          const SizedBox(height: 24),
+          _exportBtn(c),
+          const SizedBox(height: 24),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            _sec('Histori Terkini'),
+            TextButton(onPressed: () => setState(() => _tabIndex = 1), child: const Text('Semua →')),
+          ]),
+          const SizedBox(height: 8),
+          if (_harvests.isEmpty) _empty('Belum ada data', Icons.inbox_rounded, c)
+          else ..._harvests.take(5).map((h) => _hCard(h, c)),
+        ])));
   }
 
-  void _showMonthYearPicker() {
-    int tempMonth = _selectedMonth;
-    int tempYear = _selectedYear;
-    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
-
-    showModalBottomSheet(context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(padding: const EdgeInsets.all(24),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)))),
-            const SizedBox(height: 16),
-            Text('Pilih Bulan & Tahun', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 20),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => setSheetState(() => tempYear--)),
-              Text('$tempYear', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              IconButton(icon: const Icon(Icons.chevron_right),
-                  onPressed: tempYear < DateTime.now().year ? () => setSheetState(() => tempYear++) : null),
-            ]),
-            const SizedBox(height: 12),
-            Wrap(spacing: 8, runSpacing: 8, children: List.generate(12, (i) {
-              final m = i + 1; final isSelected = m == tempMonth;
-              final isFuture = tempYear == DateTime.now().year && m > DateTime.now().month;
-              return ChoiceChip(
-                label: SizedBox(width: 40, child: Text(months[i], textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 13, color: isSelected ? Colors.white : isFuture ? Colors.grey.shade400 : null))),
-                selected: isSelected, selectedColor: Colors.teal.shade700,
-                onSelected: isFuture ? null : (_) => setSheetState(() => tempMonth = m),
-              );
-            })),
-            const SizedBox(height: 20),
-            SizedBox(width: double.infinity, child: ElevatedButton(
-              onPressed: () { setState(() { _selectedMonth = tempMonth; _selectedYear = tempYear; }); Navigator.pop(ctx); },
-              child: const Text('Terapkan'))),
-          ]))));
+  // ═══════════════════════════════════════════════════
+  // TAB 1 – HISTORY
+  // ═══════════════════════════════════════════════════
+  Widget _historyTab() {
+    final c = context.dc;
+    final filters = ['Semua','7 Hari','1 Bulan','3 Bulan','6 Bulan','1 Tahun','Kustom'];
+    final fil = _filteredHist;
+    final tot = fil.fold(0.0, (s, h) => s + h.weightKg);
+    return Column(children: [
+      Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(color: c.surface, border: Border(bottom: BorderSide(color: c.border))),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(
+            children: filters.map((f) {
+              final sel = _histFilter == f;
+              return Padding(padding: const EdgeInsets.only(right: 6), child: GestureDetector(
+                onTap: () => _applyHist(f),
+                child: AnimatedContainer(duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  decoration: BoxDecoration(gradient: sel ? AppColors.gradientPrimary : null,
+                    color: sel ? null : c.surfaceLight, borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: sel ? Colors.transparent : c.border)),
+                  child: Text(f, style: GoogleFonts.inter(fontSize: 12,
+                      fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                      color: sel ? Colors.white : c.textMuted)))));
+            }).toList())),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: Text(_histStart != null && _histEnd != null
+                ? '${DateFormat('dd MMM yyyy').format(_histStart!)} — ${DateFormat('dd MMM yyyy').format(_histEnd!)}'
+                : 'Semua waktu', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted))),
+            Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+              child: Text('${fil.length} data • ${tot.toStringAsFixed(1)} KG',
+                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primary))),
+          ]),
+        ])),
+      Expanded(child: fil.isEmpty
+          ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.inbox_rounded, size: 56, color: c.textMuted), const SizedBox(height: 12),
+              Text('Tidak ada data', style: GoogleFonts.inter(color: c.textMuted))]))
+          : ListView.builder(padding: const EdgeInsets.all(16), itemCount: fil.length,
+              itemBuilder: (_, i) => _hCard(fil[i], c))),
+    ]);
   }
 
-  // ============================================================
-  // DRAWER
-  // ============================================================
+  void _applyHist(String f) {
+    setState(() {
+      _histFilter = f; final now = DateTime.now();
+      switch (f) {
+        case 'Semua': _histStart = null; _histEnd = null; break;
+        case '7 Hari': _histStart = now.subtract(const Duration(days: 7)); _histEnd = now; break;
+        case '1 Bulan': _histStart = DateTime(now.year, now.month - 1, now.day); _histEnd = now; break;
+        case '3 Bulan': _histStart = DateTime(now.year, now.month - 3, now.day); _histEnd = now; break;
+        case '6 Bulan': _histStart = now.subtract(const Duration(days: 180)); _histEnd = now; break;
+        case '1 Tahun': _histStart = now.subtract(const Duration(days: 365)); _histEnd = now; break;
+        case 'Kustom': _pickHistRange(); return;
+      }
+    });
+  }
 
-  Widget _buildDrawer(BuildContext context) {
-    return Drawer(child: Column(children: [
-      UserAccountsDrawerHeader(
-        decoration: BoxDecoration(color: Colors.teal.shade700),
-        accountName: Text(_currentUserName.isEmpty ? 'Stakeholder' : _currentUserName,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-        accountEmail: Text(_currentUserEmail),
-        currentAccountPicture: const CircleAvatar(backgroundColor: Colors.white,
-            child: Icon(Icons.person, size: 36, color: Colors.teal)),
-      ),
-      ListTile(leading: const Icon(Icons.history), title: const Text('Histori Panen'),
-        subtitle: const Text('Lihat semua data panen'),
-        onTap: () { Navigator.pop(context);
-          Navigator.push(context, MaterialPageRoute(
-            builder: (_) => HarvestHistoryPage(harvests: _harvests, landNameMap: _landNameMap, isAdmin: false)));
-        }),
-      ListTile(leading: const Icon(Icons.download), title: const Text('Export Rekapitulasi'),
-        onTap: () { Navigator.pop(context); if (_harvests.isNotEmpty) _showExportDialog(context); }),
-      const Spacer(),
-      const Divider(height: 1),
-      ListTile(leading: const Icon(Icons.logout, color: Colors.red),
-        title: const Text('Keluar', style: TextStyle(color: Colors.red)),
-        onTap: () { Navigator.pop(context); _logout(); }),
+  Future<void> _pickHistRange() async {
+    final p = await showDateRangePicker(context: context, firstDate: DateTime(2020), lastDate: DateTime.now(),
+      initialDateRange: _histStart != null && _histEnd != null
+          ? DateTimeRange(start: _histStart!, end: _histEnd!)
+          : DateTimeRange(start: DateTime.now().subtract(const Duration(days: 30)), end: DateTime.now()),
+      builder: (ctx, child) => Theme(data: Theme.of(ctx), child: child!));
+    if (p != null) setState(() { _histStart = p.start; _histEnd = p.end; _histFilter = 'Kustom'; });
+  }
+
+  // ═══════════════════════════════════════════════════
+  // TAB 2 – LANDS
+  // ═══════════════════════════════════════════════════
+  Widget _landsTab() {
+    final c = context.dc;
+    return _myLands.isEmpty
+        ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(Icons.terrain_rounded, size: 56, color: c.textMuted), const SizedBox(height: 12),
+            Text('Belum ada lahan', style: GoogleFonts.inter(color: c.textMuted))]))
+        : ListView.builder(padding: const EdgeInsets.all(16), itemCount: _myLands.length,
+            itemBuilder: (_, i) {
+              final l = _myLands[i];
+              final tot = _harvests.where((h) => h.landId == l.id).fold(0.0, (s, h) => s + h.weightKg);
+              return Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: c.border)),
+                child: Row(children: [
+                  Container(width: 4, height: 40, decoration: BoxDecoration(
+                      color: AppColors.primary, borderRadius: BorderRadius.circular(2))),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(l.name, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: c.textPrimary)),
+                    const SizedBox(height: 4),
+                    Text('${l.sizeHectares} Ha', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted)),
+                  ])),
+                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    Text(tot.toStringAsFixed(1), style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: c.textPrimary)),
+                    Text('KG', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: c.textMuted)),
+                  ]),
+                ]));
+            });
+  }
+
+  // ═══════════════════════════════════════════════════
+  // TAB 3 – PROFILE
+  // ═══════════════════════════════════════════════════
+  Widget _profileTab() {
+    final c = context.dc;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return SingleChildScrollView(padding: const EdgeInsets.all(16), child: Column(children: [
+      // User card
+      Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(
+          color: c.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: c.border)),
+        child: Row(children: [
+          Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(
+              gradient: AppColors.gradientViolet, borderRadius: BorderRadius.circular(14)),
+            child: const Icon(Icons.person_rounded, size: 28, color: Colors.white)),
+          const SizedBox(width: 16),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(_name.isEmpty ? 'Stakeholder' : _name, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16, color: c.textPrimary)),
+            const SizedBox(height: 2),
+            Text(_email, style: GoogleFonts.inter(fontSize: 13, color: c.textMuted)),
+          ])),
+        ])),
       const SizedBox(height: 16),
+      // Theme
+      Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(
+          color: c.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: c.border)),
+        child: Row(children: [
+          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(
+              gradient: AppColors.gradientPrimary, borderRadius: BorderRadius.circular(10)),
+            child: Icon(isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded, size: 20, color: Colors.white)),
+          const SizedBox(width: 14),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Tema Aplikasi', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: c.textPrimary)),
+            Text(isDark ? 'Mode Gelap' : 'Mode Terang', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted)),
+          ])),
+          Switch(value: isDark, activeColor: AppColors.primary,
+            onChanged: (_) => ref.read(themeModeProvider.notifier).toggle()),
+        ])),
+      const SizedBox(height: 12),
+      _sTile(c, Icons.download_rounded, 'Export Rekapitulasi', () {
+        if (_harvests.isNotEmpty) _showExportDialog();
+      }),
+      const SizedBox(height: 24),
+      _sTile(c, Icons.logout_rounded, 'Keluar', _logout, color: AppColors.rose),
     ]));
   }
 
-  // ============================================================
-  // LINE CHART
-  // ============================================================
+  Widget _sTile(DColors c, IconData icon, String t, VoidCallback onTap, {Color? color}) {
+    return Container(decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: c.border)),
+      child: ListTile(
+        leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(
+            color: (color ?? AppColors.primary).withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+          child: Icon(icon, size: 20, color: color ?? c.textSecondary)),
+        title: Text(t, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: color ?? c.textPrimary)),
+        trailing: Icon(Icons.chevron_right_rounded, color: c.textMuted),
+        onTap: onTap, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ));
+  }
 
-  Widget _buildLineChart() {
-    final data = _chartHarvests;
-    final String dateFormat;
-    switch (_chartTimeframe) {
-      case '2 Minggu': dateFormat = 'dd MMM'; break;
-      case '1 Bulan': dateFormat = 'dd MMM'; break;
-      case '3 Bulan': dateFormat = 'MMM yy'; break;
-      default: dateFormat = 'dd MMM';
+  // ═══════════════════════════════════════════════════
+  // SHARED WIDGETS
+  // ═══════════════════════════════════════════════════
+  Widget _sec(String t) => Text(t, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: context.dc.textPrimary));
+
+  Widget _stat(IconData icon, String val, String? unit, String label, LinearGradient grad,
+      {VoidCallback? onTap, bool chevron = false}) {
+    final c = context.dc;
+    return GestureDetector(onTap: onTap, child: Container(padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: c.border)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(gradient: grad, borderRadius: BorderRadius.circular(10)),
+          child: Icon(icon, size: 18, color: Colors.white)),
+        const SizedBox(height: 10),
+        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Flexible(child: Text(val, style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w800, color: c.textPrimary),
+              overflow: TextOverflow.ellipsis)),
+          if (unit != null) ...[const SizedBox(width: 2), Padding(padding: const EdgeInsets.only(bottom: 2),
+            child: Text(unit, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: c.textMuted)))],
+        ]),
+        const SizedBox(height: 4),
+        Row(children: [
+          Expanded(child: Text(label, style: GoogleFonts.inter(fontSize: 11, color: c.textMuted), overflow: TextOverflow.ellipsis)),
+          if (chevron) Icon(Icons.keyboard_arrow_down_rounded, size: 14, color: c.textMuted),
+        ]),
+      ])));
+  }
+
+  Widget _landCard(LandModel l, DColors c) {
+    final t = _harvests.where((h) => h.landId == l.id).fold(0.0, (s, h) => s + h.weightKg);
+    final cls = [[const Color(0xFF059669), const Color(0xFF34D399)], [const Color(0xFF7C3AED), const Color(0xFFA78BFA)],
+      [const Color(0xFF0891B2), const Color(0xFF22D3EE)], [const Color(0xFFD97706), const Color(0xFFFBBF24)]];
+    final ci = _myLands.indexOf(l) % cls.length;
+    return SizedBox(width: 170, child: Container(padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [cls[ci][0].withOpacity(0.15), cls[ci][1].withOpacity(0.05)],
+            begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(16), border: Border.all(color: cls[ci][0].withOpacity(0.25))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(
+              color: cls[ci][0].withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
+            child: Icon(Icons.terrain_rounded, size: 14, color: cls[ci][1])),
+          const SizedBox(width: 8),
+          Expanded(child: Text(l.name, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13, color: c.textPrimary),
+              overflow: TextOverflow.ellipsis)),
+        ]),
+        const Spacer(),
+        Text('${l.sizeHectares} Ha', style: GoogleFonts.inter(fontSize: 11, color: c.textMuted)),
+        const SizedBox(height: 2),
+        Text('${t.toStringAsFixed(1)} KG', style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: cls[ci][1])),
+      ])));
+  }
+
+  Widget _tfPills(DColors c) => Container(padding: const EdgeInsets.all(4),
+    decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: c.border)),
+    child: Row(children: _tfs.map((tf) {
+      final a = tf == _chartTf;
+      return Expanded(child: GestureDetector(onTap: () => setState(() => _chartTf = tf),
+        child: AnimatedContainer(duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(gradient: a ? AppColors.gradientPrimary : null, borderRadius: BorderRadius.circular(9)),
+          child: Text(tf, textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 12,
+              fontWeight: a ? FontWeight.w700 : FontWeight.w500, color: a ? Colors.white : c.textMuted)))));
+    }).toList()));
+
+  Widget _empty(String t, IconData i, DColors c) => Container(width: double.infinity, padding: const EdgeInsets.all(32),
+    decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: c.border)),
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Icon(i, size: 40, color: c.textMuted), const SizedBox(height: 12),
+      Text(t, style: GoogleFonts.inter(color: c.textMuted, fontSize: 14))]));
+
+  Widget _infoBanner(String t, DColors c) => Container(padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(color: AppColors.amber.withOpacity(0.08), borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.amber.withOpacity(0.2))),
+    child: Row(children: [Icon(Icons.info_outline_rounded, color: AppColors.amber, size: 16),
+      const SizedBox(width: 10), Expanded(child: Text(t, style: GoogleFonts.inter(color: AppColors.amber, fontSize: 13)))]));
+
+  Widget _exportBtn(DColors c) => Container(width: double.infinity,
+    decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: c.borderLight)),
+    child: Material(color: c.surface, borderRadius: BorderRadius.circular(14),
+      child: InkWell(borderRadius: BorderRadius.circular(14), onTap: _harvests.isEmpty ? null : () => _showExportDialog(),
+        child: Padding(padding: const EdgeInsets.symmetric(vertical: 14),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(Icons.download_rounded, color: _harvests.isEmpty ? c.textMuted : AppColors.primary, size: 20),
+            const SizedBox(width: 8),
+            Text('Export Rekapitulasi', style: GoogleFonts.inter(
+                color: _harvests.isEmpty ? c.textMuted : AppColors.primary, fontWeight: FontWeight.w600, fontSize: 14))])))));
+
+  Widget _hCard(HarvestModel h, DColors c) {
+    final n = _landNameMap[h.landId] ?? h.landName ?? h.landId;
+    return Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: c.border)),
+      child: Row(children: [
+        Container(width: 4, height: 44, decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(2))),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(n, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: c.textPrimary)),
+          const SizedBox(height: 4),
+          Row(children: [Icon(Icons.calendar_today_rounded, size: 11, color: c.textMuted), const SizedBox(width: 4),
+            Text(DateFormat('dd MMM yyyy').format(h.harvestDate), style: GoogleFonts.inter(fontSize: 11, color: c.textMuted))])
+        ])),
+        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Text('${h.weightKg}', style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 18, color: c.textPrimary)),
+          Text('KG', style: GoogleFonts.inter(fontSize: 10, color: c.textMuted, fontWeight: FontWeight.w600)),
+        ]),
+      ]));
+  }
+
+  // ═══════════════════════════════════════════════════
+  // CHART
+  // ═══════════════════════════════════════════════════
+  String _gk(DateTime d) {
+    switch (_chartTf) {
+      case 'Harian': return DateFormat('dd MMM yy').format(d);
+      case '2 Minggu': return DateFormat('dd MMM yy').format(_bw(d));
+      case '1 Bulan': return DateFormat('MMM yyyy').format(d);
+      case '3 Bulan': return 'Q${((d.month - 1) ~/ 3) + 1} ${d.year}';
+      default: return DateFormat('dd MMM yy').format(d);
     }
-
-    final Map<String, double> grouped = {};
-    for (var h in data) {
-      final key = DateFormat(dateFormat).format(h.harvestDate);
-      grouped[key] = (grouped[key] ?? 0) + h.weightKg;
+  }
+  DateTime _sk(DateTime d) {
+    switch (_chartTf) {
+      case 'Harian': return DateTime(d.year, d.month, d.day);
+      case '2 Minggu': return _bw(d);
+      case '1 Bulan': return DateTime(d.year, d.month);
+      case '3 Bulan': return DateTime(d.year, ((d.month - 1) ~/ 3) * 3 + 1);
+      default: return DateTime(d.year, d.month, d.day);
     }
-    final entries = grouped.entries.toList();
-    if (entries.isEmpty) return const Center(child: Text('Tidak ada data'));
-    final maxY = entries.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+  }
+  DateTime _bw(DateTime d) { final e = DateTime(2020,1,6); final ds = d.difference(e).inDays; return e.add(Duration(days: ds-(ds%14))); }
 
-    return Card(elevation: 2, child: Padding(padding: const EdgeInsets.fromLTRB(8, 20, 16, 8),
-      child: LineChart(LineChartData(
-        minY: 0, maxY: maxY * 1.2,
+  Widget _chart(DColors c) {
+    final Map<DateTime, _B> bk = {};
+    for (var h in _harvests) { final sk = _sk(h.harvestDate); final lb = _gk(h.harvestDate);
+      bk.putIfAbsent(sk, () => _B(lb, 0)); bk[sk]!.t += h.weightKg; }
+    final keys = bk.keys.toList()..sort();
+    final e = keys.map((k) => bk[k]!).toList();
+    if (e.isEmpty) return _empty('Tidak ada data', Icons.show_chart_rounded, c);
+    final my = e.map((x) => x.t).reduce((a, b) => a > b ? a : b);
+    return Container(height: 280, padding: const EdgeInsets.fromLTRB(8, 20, 16, 8),
+      decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: c.border)),
+      child: LineChart(LineChartData(minY: 0, maxY: my * 1.2,
         gridData: FlGridData(show: true, drawVerticalLine: false,
-          getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey.shade200, strokeWidth: 1)),
+          getDrawingHorizontalLine: (_) => FlLine(color: c.border, strokeWidth: 1)),
         titlesData: FlTitlesData(
-          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 32, interval: 1,
-            getTitlesWidget: (value, meta) {
-              final idx = value.toInt();
-              if (idx < 0 || idx >= entries.length) return const SizedBox();
-              final step = entries.length > 10 ? 3 : entries.length > 6 ? 2 : 1;
-              if (idx % step != 0 && idx != entries.length - 1) return const SizedBox();
-              return Padding(padding: const EdgeInsets.only(top: 8),
-                child: Text(entries[idx].key, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w500)));
-            })),
+          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 36, interval: 1,
+            getTitlesWidget: (v, _) { final i = v.toInt(); if (i < 0 || i >= e.length) return const SizedBox();
+              final s = e.length > 20 ? 5 : e.length > 10 ? 3 : e.length > 6 ? 2 : 1;
+              if (i % s != 0 && i != e.length - 1) return const SizedBox();
+              return Padding(padding: const EdgeInsets.only(top: 8), child: Text(e[i].l, style: GoogleFonts.inter(fontSize: 8, color: c.textMuted))); })),
           leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 48,
-            getTitlesWidget: (value, meta) => Text('${value.toInt()}', style: TextStyle(fontSize: 10, color: Colors.grey.shade600)))),
+            getTitlesWidget: (v, _) => Text('${v.toInt()}', style: GoogleFonts.inter(fontSize: 10, color: c.textMuted)))),
           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        ),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false))),
         borderData: FlBorderData(show: false),
         lineTouchData: LineTouchData(touchTooltipData: LineTouchTooltipData(
-          getTooltipColor: (_) => Colors.blueGrey.shade800,
-          getTooltipItems: (spots) => spots.map((spot) {
-            final idx = spot.spotIndex;
-            return LineTooltipItem('${entries[idx].key}\n${spot.y.toStringAsFixed(1)} KG',
-                const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12));
-          }).toList())),
+          getTooltipColor: (_) => c.surfaceBright, tooltipBorder: BorderSide(color: c.borderLight), tooltipRoundedRadius: 10,
+          getTooltipItems: (spots) => spots.map((s) => LineTooltipItem('${e[s.spotIndex].l}\n${s.y.toStringAsFixed(1)} KG',
+              GoogleFonts.inter(color: c.textPrimary, fontWeight: FontWeight.w700, fontSize: 12))).toList())),
         lineBarsData: [LineChartBarData(
-          spots: List.generate(entries.length, (i) => FlSpot(i.toDouble(), entries[i].value)),
-          isCurved: true, curveSmoothness: 0.3,
-          gradient: LinearGradient(colors: [Colors.teal.shade400, Colors.teal.shade700]),
-          barWidth: 3, isStrokeCapRound: true,
-          dotData: FlDotData(show: true, getDotPainter: (spot, percent, barData, index) =>
-              FlDotCirclePainter(radius: 4, color: Colors.teal.shade700, strokeWidth: 2, strokeColor: Colors.white)),
+          spots: List.generate(e.length, (i) => FlSpot(i.toDouble(), e[i].t)),
+          isCurved: true, curveSmoothness: 0.3, gradient: AppColors.gradientPrimary,
+          barWidth: 2.5, isStrokeCapRound: true,
+          dotData: FlDotData(show: e.length <= 30, getDotPainter: (_, __, ___, ____) =>
+              FlDotCirclePainter(radius: 3, color: AppColors.primary, strokeWidth: 2, strokeColor: c.surface)),
           belowBarData: BarAreaData(show: true, gradient: LinearGradient(
-              colors: [Colors.teal.withOpacity(0.2), Colors.teal.withOpacity(0.02)],
-              begin: Alignment.topCenter, end: Alignment.bottomCenter)),
-        )],
-      ))));
+              colors: [AppColors.primary.withOpacity(0.15), AppColors.primary.withOpacity(0.0)],
+              begin: Alignment.topCenter, end: Alignment.bottomCenter)))])));
   }
 
-  // ============================================================
+  // ═══════════════════════════════════════════════════
   // DIALOGS
-  // ============================================================
+  // ═══════════════════════════════════════════════════
+  void _showMonthPicker() {
+    int tm = _selMonth, ty = _selYear;
+    const mn = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'];
+    showModalBottomSheet(context: context, builder: (ctx) => StatefulBuilder(
+      builder: (ctx, ss) { final c = context.dc; return Padding(padding: const EdgeInsets.all(24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: c.surfaceBright, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 20),
+          Text('Pilih Bulan & Tahun', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: c.textPrimary)),
+          const SizedBox(height: 20),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            IconButton(icon: const Icon(Icons.chevron_left_rounded), onPressed: () => ss(() => ty--)),
+            Text('$ty', style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w800, color: c.textPrimary)),
+            IconButton(icon: const Icon(Icons.chevron_right_rounded), onPressed: ty < DateTime.now().year ? () => ss(() => ty++) : null),
+          ]),
+          const SizedBox(height: 16),
+          Wrap(spacing: 8, runSpacing: 8, children: List.generate(12, (i) {
+            final m = i + 1; final sel = m == tm; final fut = ty == DateTime.now().year && m > DateTime.now().month;
+            return GestureDetector(onTap: fut ? null : () => ss(() => tm = m),
+              child: AnimatedContainer(duration: const Duration(milliseconds: 150), width: 58, height: 38, alignment: Alignment.center,
+                decoration: BoxDecoration(gradient: sel ? AppColors.gradientPrimary : null, color: sel ? null : c.surfaceLight,
+                    borderRadius: BorderRadius.circular(10), border: Border.all(color: sel ? Colors.transparent : c.border)),
+                child: Text(mn[i], style: GoogleFonts.inter(fontSize: 13, fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                    color: fut ? c.textMuted : sel ? Colors.white : c.textSecondary))));
+          })),
+          const SizedBox(height: 24),
+          SizedBox(width: double.infinity, child: Container(
+            decoration: BoxDecoration(gradient: AppColors.gradientPrimary, borderRadius: BorderRadius.circular(12)),
+            child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, elevation: 0),
+              onPressed: () { setState(() { _selMonth = tm; _selYear = ty; }); Navigator.pop(ctx); },
+              child: const Text('Terapkan')))),
+        ])); }));
+  }
 
-  void _showExportDialog(BuildContext context) {
-    showDialog(context: context, builder: (ctx) => AlertDialog(title: const Text('Export Data Lahan Anda'),
+  void _showExportDialog() {
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: Text('Export Data', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
-        ListTile(leading: const Icon(Icons.date_range, color: Colors.blue), title: const Text('6 Bulan Terakhir'),
-          onTap: () { Navigator.pop(ctx); _exportWithRange(180, '6 Bulan Terakhir'); }),
-        const Divider(height: 1),
-        ListTile(leading: const Icon(Icons.calendar_today, color: Colors.green), title: const Text('1 Tahun Terakhir'),
-          onTap: () { Navigator.pop(ctx); _exportWithRange(365, '1 Tahun Terakhir'); }),
+        _eTile(ctx, Icons.date_range_rounded, '6 Bulan Terakhir', AppColors.cyan, () { Navigator.pop(ctx); _eRange(180, '6 Bulan Terakhir'); }),
+        const SizedBox(height: 8),
+        _eTile(ctx, Icons.calendar_today_rounded, '1 Tahun Terakhir', AppColors.primary, () { Navigator.pop(ctx); _eRange(365, '1 Tahun Terakhir'); }),
       ])));
   }
+  Widget _eTile(BuildContext ctx, IconData i, String t, Color cl, VoidCallback onTap) => Material(
+    color: cl.withOpacity(0.08), borderRadius: BorderRadius.circular(12),
+    child: InkWell(borderRadius: BorderRadius.circular(12), onTap: onTap,
+      child: Padding(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(children: [Icon(i, color: cl, size: 20), const SizedBox(width: 12),
+          Expanded(child: Text(t, style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: context.dc.textPrimary))),
+          Icon(Icons.arrow_forward_ios_rounded, size: 14, color: context.dc.textMuted)]))));
 
-  void _exportWithRange(int days, String label) {
-    final now = DateTime.now(); final start = now.subtract(Duration(days: days));
-    final filtered = _harvests.where((h) => h.harvestDate.isAfter(start) && h.harvestDate.isBefore(now.add(const Duration(days: 1)))).toList();
-    _showFormatDialog(filtered, label);
+  void _eRange(int d, String l) {
+    final now = DateTime.now(); final s = now.subtract(Duration(days: d));
+    final f = _harvests.where((h) => h.harvestDate.isAfter(s) && h.harvestDate.isBefore(now.add(const Duration(days: 1)))).toList();
+    _fmtDialog(f, l);
   }
-
-  void _showFormatDialog(List<HarvestModel> data, String label) {
-    showDialog(context: context, builder: (ctx) => AlertDialog(title: Text('Format Export — $label'),
+  void _fmtDialog(List<HarvestModel> data, String label) {
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: Text('Format — $label', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
-        ListTile(leading: const Icon(Icons.picture_as_pdf, color: Colors.red), title: const Text('Export ke PDF'),
-          subtitle: Text('${data.length} data panen'),
-          onTap: () async { Navigator.pop(ctx);
-            try { await ExportService.exportToPDF(context, data, label, _landNameMap); }
-            catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Export PDF gagal: $e'))); } }),
-        const Divider(height: 1),
-        ListTile(leading: const Icon(Icons.table_chart, color: Colors.green), title: const Text('Export ke Excel'),
-          subtitle: Text('${data.length} data panen'),
-          onTap: () async { Navigator.pop(ctx);
-            try { await ExportService.exportToExcel(data, label, _landNameMap);
-              if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File Excel telah diunduh!'), backgroundColor: Colors.green));
-            } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Export Excel gagal: $e'))); } }),
-      ])));
-  }
-
-  Widget _buildSummaryCard(BuildContext context, String title, String value, IconData icon) {
-    return Card(elevation: 2, child: Padding(padding: const EdgeInsets.all(16.0),
-      child: Column(children: [
-        Icon(icon, size: 32, color: Colors.teal.shade600), const SizedBox(height: 8),
-        Text(title, style: Theme.of(context).textTheme.bodyMedium), const SizedBox(height: 4),
-        Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.teal.shade700)),
+        _eTile(ctx, Icons.picture_as_pdf_rounded, 'PDF', AppColors.rose, () async { Navigator.pop(ctx);
+          try { await ExportService.exportToPDF(context, data, label, _landNameMap); }
+          catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal: $e'))); } }),
+        const SizedBox(height: 8),
+        _eTile(ctx, Icons.table_chart_rounded, 'Excel', AppColors.primary, () async { Navigator.pop(ctx);
+          try { await ExportService.exportToExcel(data, label, _landNameMap);
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File Excel diunduh!')));
+          } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal: $e'))); } }),
       ])));
   }
 }
+
+class _B { final String l; double t; _B(this.l, this.t); }

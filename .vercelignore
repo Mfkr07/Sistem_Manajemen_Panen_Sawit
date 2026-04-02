@@ -1,0 +1,16 @@
+# Abaikan folder platform & tools
+android/
+ios/
+windows/
+linux/
+macos/
+test/
+.dart_tool/
+
+# Abaikan isi folder build yang tidak diperlukan web
+build/app/
+build/ios/
+build/windows/
+build/macos/
+build/linux/
+build/host/
