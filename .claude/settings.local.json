@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l lib/features/admin/presentation/*.dart lib/features/stakeholder/presentation/*.dart)",
+      "Read(//c/Users/yoru/.gemini/**)",
+      "Read(//c/Users/yoru/.gemini/antigravity/**)",
+      "Bash(cat \"C:/Users/yoru/.gemini/antigravity/brain/2eece5eb-c481-4502-a50c-250268a748b2/\"*)"
+    ]
+  }
+}

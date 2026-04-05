@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -94,94 +95,354 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
     return List.of(_harvests);
   }
 
+  final _drawerItems = const [
+    {'icon': Icons.home_rounded, 'label': 'Beranda'},
+    {'icon': Icons.receipt_long_rounded, 'label': 'Histori'},
+    {'icon': Icons.terrain_rounded, 'label': 'Lahan'},
+    {'icon': Icons.person_rounded, 'label': 'Profil'},
+  ];
+
+  String get _userInitials {
+    if (_name.isEmpty) return 'S';
+    final parts = _name.trim().split(' ');
+    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    return parts[0][0].toUpperCase();
+  }
+
+  Widget _buildSidebarContent(DColors c) {
+    return SafeArea(
+      child: Column(children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF7C3AED), Color(0xFF6366F1)],
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+            ),
+          ),
+          child: Row(children: [
+            Container(
+              width: 46, height: 46,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
+              ),
+              child: Center(child: Text(_userInitials,
+                  style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white))),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(_name.isEmpty ? 'Stakeholder' : _name,
+                  style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white),
+                  overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 2),
+              Text(_email, style: GoogleFonts.inter(fontSize: 11, color: Colors.white70),
+                  overflow: TextOverflow.ellipsis),
+            ])),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        // Nav items with active bar
+        ...List.generate(_drawerItems.length, (i) {
+          final item = _drawerItems[i];
+          final active = _tabIndex == i;
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => setState(() => _tabIndex = i),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                  decoration: BoxDecoration(
+                    color: active ? AppColors.violet.withOpacity(0.1) : null,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 3, height: active ? 24 : 0,
+                      decoration: BoxDecoration(
+                        color: active ? AppColors.violet : Colors.transparent,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    SizedBox(width: active ? 10 : 13),
+                    Icon(item['icon'] as IconData,
+                        color: active ? AppColors.violet : c.textMuted, size: 21),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(item['label'] as String, style: GoogleFonts.inter(
+                        fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                        color: active ? AppColors.violet : c.textPrimary, fontSize: 14))),
+                  ]),
+                ),
+              ),
+            ),
+          );
+        }),
+        const Spacer(),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.rose.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: ListTile(
+              leading: Icon(Icons.logout_rounded, color: AppColors.rose, size: 22),
+              title: Text('Keluar', style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w600, color: AppColors.rose, fontSize: 14)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              onTap: _logout,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: Text('Palm Harvest v1.0', style: GoogleFonts.inter(fontSize: 11, color: c.textMuted)),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildDrawer(DColors c) {
+    return Drawer(
+      backgroundColor: c.surface,
+      child: _buildSidebarContent(c),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.dc;
-    final titles = ['Dashboard', 'Histori Panen', 'Lahan Saya', 'Profil'];
-    return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: _tabIndex == 0
-            ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Halo, ${_name.isEmpty ? 'Stakeholder' : _name} 👋',
-                    style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: c.textPrimary)),
-                Text('Dashboard Stakeholder', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted)),
-              ])
-            : Text(titles[_tabIndex]),
-        actions: [
-          if (_tabIndex == 0)
-            Padding(padding: const EdgeInsets.only(right: 8), child: IconButton(
-              icon: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(
-                  color: c.surfaceLight, borderRadius: BorderRadius.circular(10), border: Border.all(color: c.border)),
-                child: Icon(Icons.refresh_rounded, size: 18, color: c.textSecondary)),
-              onPressed: () { setState(() => _isLoading = true); _loadData(); })),
-        ],
-      ),
-      body: SafeArea(child: _isLoading
-          ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-              const CircularProgressIndicator(), const SizedBox(height: 16),
-              Text('Memuat data...', style: GoogleFonts.inter(color: c.textMuted)),
-            ]))
-          : IndexedStack(index: _tabIndex, children: [
-              _homeTab(), _historyTab(), _landsTab(), _profileTab(),
-            ])),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _tabIndex,
-        onTap: (i) => setState(() => _tabIndex = i),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Beranda'),
-          BottomNavigationBarItem(icon: Icon(Icons.receipt_long_rounded), label: 'Histori'),
-          BottomNavigationBarItem(icon: Icon(Icons.terrain_rounded), label: 'Lahan'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profil'),
-        ],
-      ),
-    );
+    final titles = ['Portofolio Anda','Histori Panen','Portofolio Lahan','Profil Stakeholder'];
+    
+    return LayoutBuilder(builder: (context, constraints) {
+      final isDesktop = constraints.maxWidth >= 900;
+      final isTablet = constraints.maxWidth >= 600 && constraints.maxWidth < 900;
+      final isMobile = constraints.maxWidth < 600;
+
+      final mainContent = Scaffold(
+        key: isDesktop ? const ValueKey('desktop') : (isTablet ? const ValueKey('tablet') : const ValueKey('mobile')),
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          leading: isMobile
+              ? Builder(builder: (ctx) => IconButton(
+                  icon: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(
+                      color: c.surfaceLight, borderRadius: BorderRadius.circular(10), border: Border.all(color: c.border)),
+                    child: Icon(Icons.menu_rounded, size: 18, color: c.textSecondary)),
+                  onPressed: () => Scaffold.of(ctx).openDrawer()))
+              : null,
+          title: _tabIndex == 0
+              ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Halo, ${_name.isEmpty ? 'Stakeholder' : _name} \uD83D\uDC4B',
+                      style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: c.textPrimary)),
+                  Text('Lihat performa lahan Anda', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted)),
+                ])
+              : Text(titles[_tabIndex]),
+          actions: [
+            if (_tabIndex == 0)
+              Padding(padding: const EdgeInsets.only(right: 8), child: IconButton(
+                icon: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(
+                    color: c.surfaceLight, borderRadius: BorderRadius.circular(10), border: Border.all(color: c.border)),
+                  child: Icon(Icons.refresh_rounded, size: 18, color: c.textSecondary)),
+                onPressed: () { setState(() => _isLoading = true); _loadData(); })),
+          ],
+        ),
+        drawer: isMobile ? _buildDrawer(c) : null,
+        body: SafeArea(child: _isLoading
+            ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const CircularProgressIndicator(), const SizedBox(height: 16),
+                Text('Memuat portofolio...', style: GoogleFonts.inter(color: c.textMuted))
+              ]))
+            : IndexedStack(index: _tabIndex, children: [_homeTab(isDesktop), _historyTab(), _landsTab(), _profileTab()])),
+        bottomNavigationBar: isMobile ? BottomNavigationBar(
+          currentIndex: _tabIndex,
+          onTap: (i) => setState(() => _tabIndex = i),
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Beranda'),
+            BottomNavigationBarItem(icon: Icon(Icons.receipt_long_rounded), label: 'Histori'),
+            BottomNavigationBarItem(icon: Icon(Icons.terrain_rounded), label: 'Lahan'),
+            BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profil'),
+          ],
+        ) : null,
+      );
+
+      if (isDesktop) {
+        return Scaffold(
+          backgroundColor: c.surfaceLight,
+          body: Row(children: [
+            Container(
+              width: 280,
+              decoration: BoxDecoration(
+                color: c.surface,
+                border: Border(right: BorderSide(color: c.border)),
+              ),
+              child: _buildSidebarContent(c),
+            ),
+            Expanded(child: mainContent),
+          ]),
+        );
+      } else if (isTablet) {
+        return Scaffold(
+          backgroundColor: c.surfaceLight,
+          body: Row(children: [
+            Container(
+              decoration: BoxDecoration(color: c.surface, border: Border(right: BorderSide(color: c.border))),
+              child: NavigationRail(
+                backgroundColor: c.surface,
+                selectedIndex: _tabIndex,
+                onDestinationSelected: (i) => setState(() => _tabIndex = i),
+                labelType: NavigationRailLabelType.all,
+                selectedLabelTextStyle: GoogleFonts.inter(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 11),
+                unselectedLabelTextStyle: GoogleFonts.inter(color: c.textMuted, fontWeight: FontWeight.w500, fontSize: 11),
+                destinations: _drawerItems.map((item) => NavigationRailDestination(
+                  icon: Icon(item['icon'] as IconData, color: c.textMuted),
+                  selectedIcon: Icon(item['icon'] as IconData, color: AppColors.primary),
+                  label: Text(item['label'] as String),
+                )).toList(),
+                trailing: Expanded(
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 16.0),
+                      child: IconButton(
+                        icon: const Icon(Icons.logout_rounded, color: AppColors.rose),
+                        onPressed: _logout,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(child: mainContent),
+          ]),
+        );
+      }
+
+      return mainContent;
+    });
   }
 
   // ═══════════════════════════════════════════════════
   // TAB 0 – HOME
   // ═══════════════════════════════════════════════════
-  Widget _homeTab() {
+  Widget _homeTab(bool isDesktop) {
     final c = context.dc;
+    final avgMonth = _harvests.isEmpty ? 0.0 : _totalAll / ((_harvests.map((h) => '${h.harvestDate.year}-${h.harvestDate.month}').toSet().length).clamp(1, 999));
     return RefreshIndicator(color: AppColors.primary, backgroundColor: c.surface, onRefresh: _loadData,
-      child: SingleChildScrollView(physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // Lands scroll
-          _sec('Lahan Anda'),
-          const SizedBox(height: 12),
-          if (_myLands.isEmpty)
-            _infoBanner('Belum ada lahan terdaftar. Hubungi admin.', c)
-          else
-            SizedBox(height: 120, child: ListView.separated(scrollDirection: Axis.horizontal,
-              itemCount: _myLands.length, separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (_, i) => _landCard(_myLands[i], c))),
-          const SizedBox(height: 24),
-          // Stats
-          Row(children: [
-            Expanded(child: _stat(Icons.scale_rounded, '${_monthTotal.toStringAsFixed(1)}', 'KG',
-                _selMonth == DateTime.now().month && _selYear == DateTime.now().year ? 'Bulan Ini' : _monthLabel,
-                AppColors.gradientPrimary, onTap: _showMonthPicker, chevron: true)),
-            const SizedBox(width: 10),
-            Expanded(child: _stat(Icons.terrain_rounded, '${_myLands.length}', null, 'Lahan', AppColors.gradientViolet)),
-            const SizedBox(width: 10),
-            Expanded(child: _stat(Icons.inventory_2_rounded, '${_totalAll.toStringAsFixed(0)}', 'KG', 'Total',
-                const LinearGradient(colors: [AppColors.cyan, Color(0xFF38BDF8)]))),
-          ]),
-          const SizedBox(height: 24),
-          _sec('Tren Panen'), const SizedBox(height: 12),
-          _tfPills(c), const SizedBox(height: 12),
-          _harvests.isEmpty ? _empty('Belum ada data', Icons.show_chart_rounded, c) : _chart(c),
-          const SizedBox(height: 24),
-          _exportBtn(c),
-          const SizedBox(height: 24),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            _sec('Histori Terkini'),
-            TextButton(onPressed: () => setState(() => _tabIndex = 1), child: const Text('Semua →')),
-          ]),
-          const SizedBox(height: 8),
-          if (_harvests.isEmpty) _empty('Belum ada data', Icons.inbox_rounded, c)
-          else ..._harvests.take(5).map((h) => _hCard(h, c)),
-        ])));
+      child: Center(child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1400),
+        child: SingleChildScrollView(physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(isDesktop ? 24 : 16, 8, isDesktop ? 24 : 16, 32), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Lands scroll
+            _sec('Lahan Anda'),
+            const SizedBox(height: 12),
+            if (_myLands.isEmpty)
+              _infoBanner('Belum ada lahan terdaftar. Hubungi admin.', c)
+            else
+              SizedBox(height: 120, child: ListView.separated(scrollDirection: Axis.horizontal,
+                itemCount: _myLands.length, separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (_, i) => _landCard(_myLands[i], c))),
+            const SizedBox(height: 24),
+            // Stats — 4 cols on desktop, 3 on mobile
+            if (isDesktop)
+              Row(children: [
+                Expanded(child: _stat(Icons.scale_rounded, '${_monthTotal.toStringAsFixed(1)}', 'KG',
+                    _selMonth == DateTime.now().month && _selYear == DateTime.now().year ? 'Bulan Ini' : _monthLabel,
+                    AppColors.gradientPrimary, onTap: _showMonthPicker, chevron: true)),
+                const SizedBox(width: 12),
+                Expanded(child: _stat(Icons.terrain_rounded, '${_myLands.length}', null, 'Lahan', AppColors.gradientViolet)),
+                const SizedBox(width: 12),
+                Expanded(child: _stat(Icons.inventory_2_rounded, '${_totalAll.toStringAsFixed(0)}', 'KG', 'Total',
+                    const LinearGradient(colors: [AppColors.cyan, Color(0xFF38BDF8)]))),
+                const SizedBox(width: 12),
+                Expanded(child: _stat(Icons.trending_up_rounded, '${avgMonth.toStringAsFixed(1)}', 'KG', 'Rata-rata/Bulan',
+                    const LinearGradient(colors: [AppColors.amber, Color(0xFFFBBF24)]))),
+              ])
+            else
+              Row(children: [
+                Expanded(child: _stat(Icons.scale_rounded, '${_monthTotal.toStringAsFixed(1)}', 'KG',
+                    _selMonth == DateTime.now().month && _selYear == DateTime.now().year ? 'Bulan Ini' : _monthLabel,
+                    AppColors.gradientPrimary, onTap: _showMonthPicker, chevron: true)),
+                const SizedBox(width: 10),
+                Expanded(child: _stat(Icons.terrain_rounded, '${_myLands.length}', null, 'Lahan', AppColors.gradientViolet)),
+                const SizedBox(width: 10),
+                Expanded(child: _stat(Icons.inventory_2_rounded, '${_totalAll.toStringAsFixed(0)}', 'KG', 'Total',
+                    const LinearGradient(colors: [AppColors.cyan, Color(0xFF38BDF8)]))),
+              ]),
+            const SizedBox(height: 24),
+
+            if (isDesktop)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 5,
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: c.surface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: c.border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              _sec('Tren Panen'),
+                              SizedBox(width: 280, child: _tfPills(c)),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          _harvests.isEmpty ? _empty('Belum ada data', Icons.show_chart_rounded, c) : _chart(c),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    flex: 3,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _exportBtn(c),
+                        const SizedBox(height: 20),
+                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                          _sec('Histori Terkini'),
+                          TextButton(onPressed: () => setState(() => _tabIndex = 1), child: const Text('Semua →')),
+                        ]),
+                        const SizedBox(height: 8),
+                        if (_harvests.isEmpty) _empty('Belum ada data', Icons.inbox_rounded, c)
+                        else ..._harvests.take(5).map((h) => _hCard(h, c)),
+                      ],
+                    ),
+                  )
+                ],
+              )
+            else ...[
+              _sec('Tren Panen'), const SizedBox(height: 12),
+              _tfPills(c), const SizedBox(height: 12),
+              _harvests.isEmpty ? _empty('Belum ada data', Icons.show_chart_rounded, c) : _chart(c),
+              const SizedBox(height: 24),
+              _exportBtn(c),
+              const SizedBox(height: 24),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                _sec('Histori Terkini'),
+                TextButton(onPressed: () => setState(() => _tabIndex = 1), child: const Text('Semua →')),
+              ]),
+              const SizedBox(height: 8),
+              if (_harvests.isEmpty) _empty('Belum ada data', Icons.inbox_rounded, c)
+              else ..._harvests.take(5).map((h) => _hCard(h, c)),
+            ]
+          ])))),
+    );
   }
 
   // ═══════════════════════════════════════════════════
@@ -192,42 +453,74 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
     final filters = ['Semua','7 Hari','1 Bulan','3 Bulan','6 Bulan','1 Tahun','Kustom'];
     final fil = _filteredHist;
     final tot = fil.fold(0.0, (s, h) => s + h.weightKg);
-    return Column(children: [
-      Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(color: c.surface, border: Border(bottom: BorderSide(color: c.border))),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(
-            children: filters.map((f) {
-              final sel = _histFilter == f;
-              return Padding(padding: const EdgeInsets.only(right: 6), child: GestureDetector(
-                onTap: () => _applyHist(f),
-                child: AnimatedContainer(duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                  decoration: BoxDecoration(gradient: sel ? AppColors.gradientPrimary : null,
-                    color: sel ? null : c.surfaceLight, borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: sel ? Colors.transparent : c.border)),
-                  child: Text(f, style: GoogleFonts.inter(fontSize: 12,
-                      fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                      color: sel ? Colors.white : c.textMuted)))));
-            }).toList())),
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(child: Text(_histStart != null && _histEnd != null
-                ? '${DateFormat('dd MMM yyyy').format(_histStart!)} — ${DateFormat('dd MMM yyyy').format(_histEnd!)}'
-                : 'Semua waktu', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted))),
-            Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-              child: Text('${fil.length} data • ${tot.toStringAsFixed(1)} KG',
-                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primary))),
-          ]),
-        ])),
-      Expanded(child: fil.isEmpty
-          ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(Icons.inbox_rounded, size: 56, color: c.textMuted), const SizedBox(height: 12),
-              Text('Tidak ada data', style: GoogleFonts.inter(color: c.textMuted))]))
-          : ListView.builder(padding: const EdgeInsets.all(16), itemCount: fil.length,
-              itemBuilder: (_, i) => _hCard(fil[i], c))),
-    ]);
+    return LayoutBuilder(builder: (context, constraints) {
+      final isWide = constraints.maxWidth >= 700;
+      return Column(children: [
+        Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(color: c.surface, border: Border(bottom: BorderSide(color: c.border))),
+          child: Center(child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1400),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              isWide
+                  ? Wrap(spacing: 6, runSpacing: 6,
+                      children: filters.map((f) {
+                        final sel = _histFilter == f;
+                        return GestureDetector(
+                          onTap: () => _applyHist(f),
+                          child: AnimatedContainer(duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                            decoration: BoxDecoration(gradient: sel ? AppColors.gradientPrimary : null,
+                              color: sel ? null : c.surfaceLight, borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: sel ? Colors.transparent : c.border)),
+                            child: Text(f, style: GoogleFonts.inter(fontSize: 12,
+                                fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                                color: sel ? Colors.white : c.textMuted))));
+                      }).toList())
+                  : SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(
+                      children: filters.map((f) {
+                        final sel = _histFilter == f;
+                        return Padding(padding: const EdgeInsets.only(right: 6), child: GestureDetector(
+                          onTap: () => _applyHist(f),
+                          child: AnimatedContainer(duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                            decoration: BoxDecoration(gradient: sel ? AppColors.gradientPrimary : null,
+                              color: sel ? null : c.surfaceLight, borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: sel ? Colors.transparent : c.border)),
+                            child: Text(f, style: GoogleFonts.inter(fontSize: 12,
+                                fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                                color: sel ? Colors.white : c.textMuted)))));
+                      }).toList())),
+              const SizedBox(height: 10),
+              Row(children: [
+                Expanded(child: Text(_histStart != null && _histEnd != null
+                    ? '${DateFormat('dd MMM yyyy').format(_histStart!)} — ${DateFormat('dd MMM yyyy').format(_histEnd!)}'
+                    : 'Semua waktu', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted))),
+                Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                  child: Text('${fil.length} data • ${tot.toStringAsFixed(1)} KG',
+                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primary))),
+              ]),
+            ]),
+          ))),
+        Expanded(child: fil.isEmpty
+            ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(Icons.inbox_rounded, size: 56, color: c.textMuted), const SizedBox(height: 12),
+                Text('Tidak ada data', style: GoogleFonts.inter(color: c.textMuted))]))
+            : Center(child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1400),
+                child: isWide
+                    ? GridView.builder(
+                        padding: const EdgeInsets.all(16),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: constraints.maxWidth >= 1000 ? 2 : 1,
+                          mainAxisSpacing: 8, crossAxisSpacing: 12, mainAxisExtent: 76),
+                        itemCount: fil.length,
+                        itemBuilder: (_, i) => _hCard(fil[i], c))
+                    : ListView.builder(padding: const EdgeInsets.all(16), itemCount: fil.length,
+                        itemBuilder: (_, i) => _hCard(fil[i], c)),
+              ))),
+      ]);
+    });
   }
 
   void _applyHist(String f) {
@@ -259,32 +552,47 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
   // ═══════════════════════════════════════════════════
   Widget _landsTab() {
     final c = context.dc;
-    return _myLands.isEmpty
-        ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(Icons.terrain_rounded, size: 56, color: c.textMuted), const SizedBox(height: 12),
-            Text('Belum ada lahan', style: GoogleFonts.inter(color: c.textMuted))]))
-        : ListView.builder(padding: const EdgeInsets.all(16), itemCount: _myLands.length,
-            itemBuilder: (_, i) {
-              final l = _myLands[i];
-              final tot = _harvests.where((h) => h.landId == l.id).fold(0.0, (s, h) => s + h.weightKg);
-              return Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: c.border)),
-                child: Row(children: [
-                  Container(width: 4, height: 40, decoration: BoxDecoration(
-                      color: AppColors.primary, borderRadius: BorderRadius.circular(2))),
-                  const SizedBox(width: 12),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(l.name, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: c.textPrimary)),
-                    const SizedBox(height: 4),
-                    Text('${l.sizeHectares} Ha', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted)),
-                  ])),
-                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    Text(tot.toStringAsFixed(1), style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: c.textPrimary)),
-                    Text('KG', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: c.textMuted)),
-                  ]),
-                ]));
-            });
+    Widget landItem(LandModel l) {
+      final tot = _harvests.where((h) => h.landId == l.id).fold(0.0, (s, h) => s + h.weightKg);
+      return Container(padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: c.border)),
+        child: Row(children: [
+          Container(width: 4, height: 40, decoration: BoxDecoration(
+              color: AppColors.primary, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(l.name, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: c.textPrimary)),
+            const SizedBox(height: 4),
+            Text('${l.sizeHectares} Ha', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted)),
+          ])),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text(tot.toStringAsFixed(1), style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: c.textPrimary)),
+            Text('KG', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: c.textMuted)),
+          ]),
+        ]));
+    }
+
+    return LayoutBuilder(builder: (context, constraints) {
+      final isWide = constraints.maxWidth >= 700;
+      return _myLands.isEmpty
+          ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.terrain_rounded, size: 56, color: c.textMuted), const SizedBox(height: 12),
+              Text('Belum ada lahan', style: GoogleFonts.inter(color: c.textMuted))]))
+          : Center(child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1400),
+              child: isWide
+                  ? GridView.builder(
+                      padding: const EdgeInsets.all(16),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: constraints.maxWidth >= 1000 ? 3 : 2,
+                        mainAxisSpacing: 10, crossAxisSpacing: 12, mainAxisExtent: 78),
+                      itemCount: _myLands.length,
+                      itemBuilder: (_, i) => landItem(_myLands[i]))
+                  : ListView.builder(padding: const EdgeInsets.all(16), itemCount: _myLands.length,
+                      itemBuilder: (_, i) => Padding(padding: const EdgeInsets.only(bottom: 8), child: landItem(_myLands[i]))),
+            ));
+    });
   }
 
   // ═══════════════════════════════════════════════════
@@ -293,44 +601,47 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
   Widget _profileTab() {
     final c = context.dc;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return SingleChildScrollView(padding: const EdgeInsets.all(16), child: Column(children: [
-      // User card
-      Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(
-          color: c.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: c.border)),
-        child: Row(children: [
-          Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(
-              gradient: AppColors.gradientViolet, borderRadius: BorderRadius.circular(14)),
-            child: const Icon(Icons.person_rounded, size: 28, color: Colors.white)),
-          const SizedBox(width: 16),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(_name.isEmpty ? 'Stakeholder' : _name, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16, color: c.textPrimary)),
-            const SizedBox(height: 2),
-            Text(_email, style: GoogleFonts.inter(fontSize: 13, color: c.textMuted)),
+    return SingleChildScrollView(padding: const EdgeInsets.all(16), child: Center(child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 600),
+      child: Column(children: [
+        // User card
+        Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(
+            color: c.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: c.border)),
+          child: Row(children: [
+            Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(
+                gradient: AppColors.gradientViolet, borderRadius: BorderRadius.circular(14)),
+              child: const Icon(Icons.person_rounded, size: 28, color: Colors.white)),
+            const SizedBox(width: 16),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(_name.isEmpty ? 'Stakeholder' : _name, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16, color: c.textPrimary)),
+              const SizedBox(height: 2),
+              Text(_email, style: GoogleFonts.inter(fontSize: 13, color: c.textMuted)),
+            ])),
           ])),
-        ])),
-      const SizedBox(height: 16),
-      // Theme
-      Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(
-          color: c.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: c.border)),
-        child: Row(children: [
-          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(
-              gradient: AppColors.gradientPrimary, borderRadius: BorderRadius.circular(10)),
-            child: Icon(isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded, size: 20, color: Colors.white)),
-          const SizedBox(width: 14),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Tema Aplikasi', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: c.textPrimary)),
-            Text(isDark ? 'Mode Gelap' : 'Mode Terang', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted)),
+        const SizedBox(height: 16),
+        // Theme
+        Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(
+            color: c.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: c.border)),
+          child: Row(children: [
+            Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(
+                gradient: AppColors.gradientPrimary, borderRadius: BorderRadius.circular(10)),
+              child: Icon(isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded, size: 20, color: Colors.white)),
+            const SizedBox(width: 14),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Tema Aplikasi', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: c.textPrimary)),
+              Text(isDark ? 'Mode Gelap' : 'Mode Terang', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted)),
+            ])),
+            Switch(value: isDark, activeColor: AppColors.primary,
+              onChanged: (_) => ref.read(themeModeProvider.notifier).toggle()),
           ])),
-          Switch(value: isDark, activeColor: AppColors.primary,
-            onChanged: (_) => ref.read(themeModeProvider.notifier).toggle()),
-        ])),
-      const SizedBox(height: 12),
-      _sTile(c, Icons.download_rounded, 'Export Rekapitulasi', () {
-        if (_harvests.isNotEmpty) _showExportDialog();
-      }),
-      const SizedBox(height: 24),
-      _sTile(c, Icons.logout_rounded, 'Keluar', _logout, color: AppColors.rose),
-    ]));
+        const SizedBox(height: 12),
+        _sTile(c, Icons.download_rounded, 'Export Rekapitulasi', () {
+          if (_harvests.isNotEmpty) _showExportDialog();
+        }),
+        const SizedBox(height: 24),
+        _sTile(c, Icons.logout_rounded, 'Keluar', _logout, color: AppColors.rose),
+      ]),
+    )));
   }
 
   Widget _sTile(DColors c, IconData icon, String t, VoidCallback onTap, {Color? color}) {

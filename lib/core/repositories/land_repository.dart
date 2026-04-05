@@ -49,6 +49,16 @@ class LandRepository {
     await _supabase.from('lands').delete().eq('id', id);
   }
 
+  /// Update a land
+  Future<void> updateLand(String id, {String? name, double? sizeHectares, String? stakeholderId}) async {
+    final updates = <String, dynamic>{};
+    if (name != null) updates['name'] = name;
+    if (sizeHectares != null) updates['size_hectares'] = sizeHectares;
+    if (stakeholderId != null) updates['stakeholder_id'] = stakeholderId;
+    if (updates.isEmpty) return;
+    await _supabase.from('lands').update(updates).eq('id', id);
+  }
+
   /// Get all stakeholders (for admin to assign lands)
   Future<List<UserModel>> getAllStakeholders() async {
     try {

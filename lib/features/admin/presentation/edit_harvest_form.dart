@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../core/database/local_db.dart';
 import '../../../core/models/models.dart';
 import '../../../core/repositories/land_repository.dart';
+import '../../../core/theme/app_colors.dart';
 
 class EditHarvestForm extends StatefulWidget {
   final HarvestModel harvest;
@@ -91,7 +93,7 @@ class _EditHarvestFormState extends State<EditHarvestForm> {
         weightKg: weight,
         harvestDate: _selectedDate,
         updatedAt: DateTime.now(),
-        syncStatus: 'pending', // Mark for re-sync
+        syncStatus: 'pending',
       );
 
       await LocalDatabase.instance.updateHarvest(updatedHarvest);
@@ -122,124 +124,145 @@ class _EditHarvestFormState extends State<EditHarvestForm> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.dc;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Edit Data Panen'),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Info card
-              Card(
-                color: Colors.blue.shade50,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: c.surface,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: c.border),
+                ),
+                child: Form(
+                  key: _formKey,
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.info_outline, color: Colors.blue, size: 18),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Mengedit Data Panen',
-                            style: TextStyle(fontWeight: FontWeight.w600, color: Colors.blue.shade800),
-                          ),
-                        ],
+                      // Info card
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppColors.cyan.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.cyan.withOpacity(0.2)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.edit_note_rounded, color: AppColors.cyan, size: 18),
+                                const SizedBox(width: 8),
+                                Text('Mengedit Data Panen',
+                                    style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppColors.cyan, fontSize: 14)),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Upload: ${DateFormat('dd MMM yyyy HH:mm').format(widget.harvest.createdAt)}',
+                              style: GoogleFonts.inter(fontSize: 12, color: c.textMuted),
+                            ),
+                            Text(
+                              'Terakhir diedit: ${DateFormat('dd MMM yyyy HH:mm').format(widget.harvest.updatedAt)}',
+                              style: GoogleFonts.inter(fontSize: 12, color: c.textMuted),
+                            ),
+                          ],
+                        ),
                       ),
+                      const SizedBox(height: 24),
+
+                      // Land Dropdown
+                      Text('Lahan', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: c.textSecondary)),
                       const SizedBox(height: 8),
-                      Text(
-                        'Upload: ${DateFormat('dd MMM yyyy HH:mm').format(widget.harvest.createdAt)}',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                      _isLoadingLands
+                          ? const LinearProgressIndicator()
+                          : DropdownButtonFormField<String>(
+                              value: _lands.any((l) => l.id == _selectedLandId) ? _selectedLandId : null,
+                              decoration: const InputDecoration(
+                                prefixIcon: Icon(Icons.terrain),
+                                hintText: 'Pilih lahan...',
+                              ),
+                              items: _lands.map((land) => DropdownMenuItem(
+                                value: land.id,
+                                child: Text('${land.name} (${land.sizeHectares} Ha)'),
+                              )).toList(),
+                              onChanged: (val) => setState(() => _selectedLandId = val),
+                              validator: (val) => val == null ? 'Pilih lahan' : null,
+                            ),
+                      const SizedBox(height: 20),
+
+                      // Weight
+                      Text('Berat Panen', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: c.textSecondary)),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _weightController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          prefixIcon: Icon(Icons.monitor_weight),
+                          suffixText: 'KG',
+                        ),
+                        validator: (val) {
+                          if (val == null || val.isEmpty) return 'Wajib diisi';
+                          if (double.tryParse(val) == null) return 'Harus berupa angka';
+                          if (double.parse(val) <= 0) return 'Berat harus lebih dari 0';
+                          return null;
+                        },
                       ),
-                      Text(
-                        'Terakhir diedit: ${DateFormat('dd MMM yyyy HH:mm').format(widget.harvest.updatedAt)}',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                      const SizedBox(height: 20),
+
+                      // Date
+                      Text('Tanggal Panen', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: c.textSecondary)),
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: _pickDate,
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            prefixIcon: Icon(Icons.calendar_today),
+                          ),
+                          child: Text(
+                            DateFormat('dd MMMM yyyy, HH:mm').format(_selectedDate),
+                            style: GoogleFonts.inter(fontSize: 15, color: c.textPrimary),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Save button
+                      Container(
+                        height: 50,
+                        decoration: BoxDecoration(
+                          gradient: AppColors.gradientPrimary,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))],
+                        ),
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent, elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          icon: _isSaving
+                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : const Icon(Icons.save, color: Colors.white),
+                          label: Text(_isSaving ? 'Menyimpan...' : 'Simpan Perubahan',
+                              style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: Colors.white)),
+                          onPressed: _isSaving ? null : _saveEdit,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-
-              // Land Dropdown
-              Text('Lahan', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 8),
-              _isLoadingLands
-                  ? const LinearProgressIndicator()
-                  : DropdownButtonFormField<String>(
-                      value: _lands.any((l) => l.id == _selectedLandId) ? _selectedLandId : null,
-                      decoration: const InputDecoration(
-                        prefixIcon: Icon(Icons.terrain),
-                        hintText: 'Pilih lahan...',
-                      ),
-                      items: _lands.map((land) => DropdownMenuItem(
-                        value: land.id,
-                        child: Text('${land.name} (${land.sizeHectares} Ha)'),
-                      )).toList(),
-                      onChanged: (val) => setState(() => _selectedLandId = val),
-                      validator: (val) => val == null ? 'Pilih lahan' : null,
-                    ),
-              const SizedBox(height: 20),
-
-              // Weight
-              Text('Berat Panen', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _weightController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.monitor_weight),
-                  suffixText: 'KG',
-                ),
-                validator: (val) {
-                  if (val == null || val.isEmpty) return 'Wajib diisi';
-                  if (double.tryParse(val) == null) return 'Harus berupa angka';
-                  if (double.parse(val) <= 0) return 'Berat harus lebih dari 0';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
-
-              // Date
-              Text('Tanggal Panen', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 8),
-              InkWell(
-                onTap: _pickDate,
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.calendar_today),
-                  ),
-                  child: Text(
-                    DateFormat('dd MMMM yyyy, HH:mm').format(_selectedDate),
-                    style: const TextStyle(fontSize: 15),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // Save button
-              SizedBox(
-                height: 50,
-                child: ElevatedButton.icon(
-                  icon: _isSaving
-                      ? const SizedBox(
-                          width: 18, height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.save),
-                  label: Text(_isSaving ? 'Menyimpan...' : 'Simpan Perubahan'),
-                  onPressed: _isSaving ? null : _saveEdit,
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
         ),
       ),
     );
