@@ -31,9 +31,13 @@ CREATE TABLE IF NOT EXISTS lands (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   size_hectares NUMERIC NOT NULL DEFAULT 0,
+  tree_count INTEGER NOT NULL DEFAULT 0,
   stakeholder_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  image_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+-- Juga tambahkan alter table agar memastikan kolom terbuat untuk tabel yang terlanjur ada
+ALTER TABLE lands ADD COLUMN IF NOT EXISTS image_url TEXT;
 
 -- 3. Tabel Harvests (Data Panen)
 CREATE TABLE IF NOT EXISTS harvests (
@@ -45,6 +49,22 @@ CREATE TABLE IF NOT EXISTS harvests (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 4. Tabel Land Finances (Buku Rekap Pengeluaran & Harga Bulanan)
+CREATE TABLE IF NOT EXISTS land_finances (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  land_id UUID REFERENCES lands(id) ON DELETE CASCADE,
+  period_month INTEGER NOT NULL,
+  period_year INTEGER NOT NULL,
+  price_per_kg NUMERIC NOT NULL DEFAULT 0,
+  fertilizer_cost NUMERIC NOT NULL DEFAULT 0,
+  worker_cost NUMERIC NOT NULL DEFAULT 0,
+  pesticide_yearly_cost NUMERIC NOT NULL DEFAULT 0,
+  pruning_yearly_cost NUMERIC NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(land_id, period_month, period_year)
+);
+
 -- ============================================================
 -- LANGKAH 3: AKTIFKAN ROW LEVEL SECURITY
 -- ============================================================
@@ -52,6 +72,7 @@ CREATE TABLE IF NOT EXISTS harvests (
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lands ENABLE ROW LEVEL SECURITY;
 ALTER TABLE harvests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE land_finances ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
 -- LANGKAH 4: POLICIES (Aturan Akses)
@@ -102,6 +123,25 @@ CREATE POLICY "harvests_stakeholder_select" ON harvests
     )
   );
 
+-- === LAND FINANCES TABLE ===
+-- Admin bisa CRUD semua data keuangan lahan
+CREATE POLICY "land_finances_admin_all" ON land_finances
+  FOR ALL TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin')
+  );
+
+-- Stakeholder bisa SELECT data keuangan lahan miliknya
+CREATE POLICY "land_finances_stakeholder_select" ON land_finances
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM lands 
+      WHERE lands.id = land_finances.land_id 
+        AND lands.stakeholder_id = auth.uid()
+    )
+  );
+
 -- ============================================================
 -- LANGKAH 5: TRIGGER — auto update 'updated_at'
 -- ============================================================
@@ -118,6 +158,12 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS set_updated_at ON harvests;
 CREATE TRIGGER set_updated_at
   BEFORE UPDATE ON harvests
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS set_finances_updated_at ON land_finances;
+CREATE TRIGGER set_finances_updated_at
+  BEFORE UPDATE ON land_finances
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
@@ -147,3 +193,31 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_new_user();
+
+-- ============================================================
+-- LANGKAH 7: Supabase Storage untuk Foto Lahan
+-- ============================================================
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('land_images', 'land_images', true) 
+ON CONFLICT (id) DO NOTHING;
+
+-- RLS untuk Storage object agar admin bisa upload/delete
+DROP POLICY IF EXISTS "Public View Land Images" ON storage.objects;
+CREATE POLICY "Public View Land Images" ON storage.objects
+  FOR SELECT USING (bucket_id = 'land_images');
+
+DROP POLICY IF EXISTS "Admin Insert Land Images" ON storage.objects;
+CREATE POLICY "Admin Insert Land Images" ON storage.objects
+  FOR INSERT TO authenticated 
+  WITH CHECK (bucket_id = 'land_images' AND EXISTS (SELECT 1 FROM public.users WHERE users.id = auth.uid() AND users.role = 'admin'));
+
+DROP POLICY IF EXISTS "Admin Update Land Images" ON storage.objects;
+CREATE POLICY "Admin Update Land Images" ON storage.objects
+  FOR UPDATE TO authenticated 
+  USING (bucket_id = 'land_images' AND EXISTS (SELECT 1 FROM public.users WHERE users.id = auth.uid() AND users.role = 'admin'));
+
+DROP POLICY IF EXISTS "Admin Delete Land Images" ON storage.objects;
+CREATE POLICY "Admin Delete Land Images" ON storage.objects
+  FOR DELETE TO authenticated 
+  USING (bucket_id = 'land_images' AND EXISTS (SELECT 1 FROM public.users WHERE users.id = auth.uid() AND users.role = 'admin'));
+

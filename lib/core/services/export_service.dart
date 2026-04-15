@@ -122,4 +122,149 @@ class ExportService {
 
     export_helper.downloadExcelBytes(fileBytes, 'Rekapitulasi_Panen_$timeRange.xlsx');
   }
+
+  // ===============================================
+  // EXPORT LAPORAN KEUANGAN & MARGIN (PER LAHAN)
+  // ===============================================
+  static Future<void> exportFinanceToPDF(
+    BuildContext context,
+    LandModel land,
+    LandFinanceModel finance,
+    List<HarvestModel> harvests,
+  ) async {
+    final pdf = pw.Document();
+    final fmt = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
+    double totalTonnage = harvests.fold(0.0, (sum, h) => sum + h.weightKg);
+    double pestMonthly = finance.pesticideYearlyCost / 12;
+    double prunMonthly = finance.pruningYearlyCost / 12;
+    double totalMonthlyCost = finance.fertilizerCost + finance.workerCost + pestMonthly + prunMonthly;
+    double grossRevenue = totalTonnage * finance.pricePerKg; 
+    double margin = grossRevenue - totalMonthlyCost; 
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        header: (pw.Context ctx) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                'Laporan Keuangan & Margin Laba Lahan',
+                style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Text('Lahan: ${land.name} (${land.sizeHectares} Ha)'),
+              pw.Text('Periode: Bulan ${finance.periodMonth} / Tahun ${finance.periodYear}'),
+              pw.Text('Dicetak: ${DateFormat('dd MMM yyyy HH:mm').format(DateTime.now())}', 
+                style: const pw.TextStyle(fontSize: 10)),
+              pw.Divider(),
+              pw.SizedBox(height: 8),
+            ],
+          );
+        },
+        build: (pw.Context context) {
+          return [
+            pw.Text('A. Ringkasan Pengeluaran & Pemasukan', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 8),
+            pw.Table.fromTextArray(
+              cellAlignment: pw.Alignment.centerLeft,
+              data: [
+                ['Pendapatan Kotor (Tonase x Harga/kg)', fmt.format(grossRevenue)],
+                ['Biaya Pupuk (Bulan Ini)', '- ${fmt.format(finance.fertilizerCost)}'],
+                ['Biaya Pekerja (Bulan Ini)', '- ${fmt.format(finance.workerCost)}'],
+                ['Biaya Pestisida (Tahunan dibagi 12)', '- ${fmt.format(pestMonthly)}'],
+                ['Biaya Pruning (Tahunan dibagi 12)', '- ${fmt.format(prunMonthly)}'],
+                ['TOTAL PENGELUARAN', '- ${fmt.format(totalMonthlyCost)}'],
+                ['MARGIN LABA BERSIH', fmt.format(margin)],
+              ],
+            ),
+            pw.SizedBox(height: 24),
+            pw.Text('B. Rincian Histori Panen Bulan Ini', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 8),
+            if (harvests.isEmpty) 
+               pw.Text('Tidak ada rekaman panen pada bulan ini.', style: pw.TextStyle(fontStyle: pw.FontStyle.italic))
+            else
+               pw.Table.fromTextArray(
+                 headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                 cellStyle: const pw.TextStyle(fontSize: 10),
+                 headers: ['No', 'Tanggal Panen', 'Berat (Kg)', 'Estimasi Nilai (berdasarkan harga rata-rata)'],
+                 data: List.generate(harvests.length, (i) {
+                   final h = harvests[i];
+                   return [
+                     '${i + 1}',
+                     DateFormat('dd MMM yyyy').format(h.harvestDate),
+                     '${h.weightKg} Kg',
+                     fmt.format(h.weightKg * finance.pricePerKg),
+                   ];
+                 }),
+               ),
+          ];
+        },
+      ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+      name: 'Laporan_Keuangan_${land.name}_${finance.periodMonth}_${finance.periodYear}',
+    );
+  }
+
+  static Future<void> exportFinanceToExcel(
+    LandModel land,
+    LandFinanceModel finance,
+    List<HarvestModel> harvests,
+  ) async {
+    final excel = Excel.createExcel();
+    final sheet = excel['Laporan Margin & Panen'];
+    
+    // Header Info
+    sheet.appendRow([TextCellValue('Laporan Keuangan & Margin Laba Lahan')]);
+    sheet.appendRow([TextCellValue('Lahan:'), TextCellValue('${land.name} (${land.sizeHectares} Ha)')]);
+    sheet.appendRow([TextCellValue('Periode:'), TextCellValue('Bulan ${finance.periodMonth} / Tahun ${finance.periodYear}')]);
+    
+    sheet.appendRow([]); // Empty
+    
+    // Keuangan
+    double totalTonnage = harvests.fold(0.0, (sum, h) => sum + h.weightKg);
+    double pestMonthly = finance.pesticideYearlyCost / 12;
+    double prunMonthly = finance.pruningYearlyCost / 12;
+    double totalMonthlyCost = finance.fertilizerCost + finance.workerCost + pestMonthly + prunMonthly;
+    double grossRevenue = totalTonnage * finance.pricePerKg; 
+    double margin = grossRevenue - totalMonthlyCost; 
+
+    sheet.appendRow([TextCellValue('Pemasukan Kotor'), DoubleCellValue(grossRevenue)]);
+    sheet.appendRow([TextCellValue('Biaya Pupuk'), DoubleCellValue(finance.fertilizerCost)]);
+    sheet.appendRow([TextCellValue('Biaya Pekerja'), DoubleCellValue(finance.workerCost)]);
+    sheet.appendRow([TextCellValue('Biaya Pestisida (Pembagian Bulanan)'), DoubleCellValue(pestMonthly)]);
+    sheet.appendRow([TextCellValue('Biaya Pruning (Pembagian Bulanan)'), DoubleCellValue(prunMonthly)]);
+    sheet.appendRow([TextCellValue('Total Pengeluaran'), DoubleCellValue(totalMonthlyCost)]);
+    sheet.appendRow([TextCellValue('Margin Laba Bersih'), DoubleCellValue(margin)]);
+
+    sheet.appendRow([]); // Empty
+    sheet.appendRow([TextCellValue('Rincian Panen Bulan Ini')]);
+    sheet.appendRow([
+      TextCellValue('No'),
+      TextCellValue('Tanggal Panen'),
+      TextCellValue('Berat (Kg)'),
+      TextCellValue('Estimasi Nilai')
+    ]);
+
+    for (int i = 0; i < harvests.length; i++) {
+      final h = harvests[i];
+      sheet.appendRow([
+        IntCellValue(i + 1),
+        TextCellValue(DateFormat('yyyy-MM-dd').format(h.harvestDate)),
+        DoubleCellValue(h.weightKg),
+        DoubleCellValue(h.weightKg * finance.pricePerKg)
+      ]);
+    }
+
+    if (excel.sheets.containsKey('Sheet1')) excel.delete('Sheet1');
+
+    final fileBytes = excel.save();
+    if (fileBytes == null) throw Exception('Gagal membuat file Excel');
+
+    export_helper.downloadExcelBytes(fileBytes, 'Laporan_Keuangan_${land.name}_${finance.periodMonth}_${finance.periodYear}.xlsx');
+  }
 }

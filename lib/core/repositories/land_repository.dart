@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
@@ -50,13 +51,123 @@ class LandRepository {
   }
 
   /// Update a land
-  Future<void> updateLand(String id, {String? name, double? sizeHectares, String? stakeholderId}) async {
+  Future<void> updateLand(String id, {String? name, double? sizeHectares, int? treeCount, String? stakeholderId, String? imageUrl}) async {
     final updates = <String, dynamic>{};
     if (name != null) updates['name'] = name;
     if (sizeHectares != null) updates['size_hectares'] = sizeHectares;
+    if (treeCount != null) updates['tree_count'] = treeCount;
     if (stakeholderId != null) updates['stakeholder_id'] = stakeholderId;
+    if (imageUrl != null) updates['image_url'] = imageUrl;
     if (updates.isEmpty) return;
     await _supabase.from('lands').update(updates).eq('id', id);
+  }
+
+  /// Upload land image to Supabase Storage and return the public URL
+  Future<String?> uploadLandImage(String landId, String filePath, List<int> imageBytes, String extension) async {
+    try {
+      final fileName = '${landId}_${DateTime.now().millisecondsSinceEpoch}$extension';
+      final storagePath = 'covers/$fileName';
+      // Upload using bytes for cross-platform compatibility
+      await _supabase.storage.from('land_images').uploadBinary(storagePath, Uint8List.fromList(imageBytes));
+      return _supabase.storage.from('land_images').getPublicUrl(storagePath);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // ==========================================
+  // LAND FINANCES OPERATIONS
+  // ==========================================
+
+  /// Get specific land finances from server
+  Future<List<LandFinanceModel>> getLandFinances(String landId) async {
+    try {
+      final response = await _supabase
+          .from('land_finances')
+          .select()
+          .eq('land_id', landId)
+          .order('period_year', ascending: false)
+          .order('period_month', ascending: false);
+      return response.map<LandFinanceModel>((e) => LandFinanceModel.fromJson(e)).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Get specific land finance by month/year from local or server
+  Future<LandFinanceModel?> getLandFinanceByMonth(String landId, int month, int year) async {
+    try {
+      final response = await _supabase
+          .from('land_finances')
+          .select()
+          .eq('land_id', landId)
+          .eq('period_month', month)
+          .eq('period_year', year)
+          .maybeSingle();
+      if (response != null) return LandFinanceModel.fromJson(response);
+    } catch (e) {
+      // Ignored
+    }
+    // Check locally if server failed or not found online
+    final locals = await LocalDatabase.instance.getAllFinances();
+    try {
+      return locals.firstWhere((l) => l.landId == landId && l.periodMonth == month && l.periodYear == year);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Sync all pending local finances to Supabase server
+  Future<int> syncPendingFinances() async {
+    final pending = await LocalDatabase.instance.getPendingFinances();
+    int syncedCount = 0;
+    
+    for (final fin in pending) {
+      try {
+        final payload = fin.toServerJson();
+        // UPSERT using conflict on land_id, period_month, period_year
+        await _supabase.from('land_finances').upsert(
+            payload, onConflict: 'land_id, period_month, period_year');
+        await LocalDatabase.instance.markFinanceAsSynced(fin.id);
+        syncedCount++;
+      } catch (e) {
+        print('Gagal sinkron data margin ${fin.id}: $e');
+      }
+    }
+    return syncedCount;
+  }
+
+  /// Get all finances locally (admin)
+  Future<List<LandFinanceModel>> getAllFinancesLocally() async {
+     return await LocalDatabase.instance.getAllFinances();
+  }
+
+  /// Get all finances from server (admin)
+  Future<List<LandFinanceModel>> getAllFinancesFromServer() async {
+    try {
+      final response = await _supabase
+          .from('land_finances')
+          .select()
+          .order('period_year', ascending: false)
+          .order('period_month', ascending: false);
+      
+      final data = response.map<LandFinanceModel>((e) => LandFinanceModel.fromJson(e)).toList();
+      // Cache it
+      for (var f in data) {
+         await LocalDatabase.instance.insertFinance(f.copyWith(syncStatus: 'synced'));
+      }
+      return data;
+    } catch (e) {
+      return await getAllFinancesLocally();
+    }
+  }
+
+  /// Save a finance record locally (marked pending) and trigger sync later
+  Future<void> upsertFinance(LandFinanceModel finance) async {
+    final pendingFinance = finance.copyWith(syncStatus: 'pending');
+    await LocalDatabase.instance.insertFinance(pendingFinance);
+    // Optionally trigger sync right away if online
+    syncPendingFinances();
   }
 
   /// Get all stakeholders (for admin to assign lands)

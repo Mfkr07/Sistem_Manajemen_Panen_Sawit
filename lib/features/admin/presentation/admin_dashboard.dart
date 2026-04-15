@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,9 +7,10 @@ import 'package:go_router/go_router.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'input_harvest_form.dart';
 import 'edit_harvest_form.dart';
-import 'manage_lands_page.dart';
 import 'manage_accounts_page.dart';
 import '../../../core/database/local_db.dart';
 import '../../../core/models/models.dart';
@@ -28,6 +30,8 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
   // ── State ──
   List<HarvestModel> _harvests = [];
   List<LandModel> _lands = [];
+  List<UserModel> _stakeholders = [];
+  List<LandFinanceModel> _finances = [];
   Map<String, String> _landNameMap = {};
   bool _isLoading = true;
   bool _isSyncing = false;
@@ -73,6 +77,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
     setState(() => _isLoading = true);
     try {
       _lands = await LandRepository().getAllLands();
+      _stakeholders = await LandRepository().getAllStakeholders();
       _landNameMap = {for (var l in _lands) l.id: l.name};
       final local = await LocalDatabase.instance.getAllHarvests();
       _pendingCount = local.where((h) => h.syncStatus == 'pending').length;
@@ -81,15 +86,30 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
       final ids = local.map((h) => h.id).toSet();
       final merged = <HarvestModel>[...local, ...server.where((h) => !ids.contains(h.id))];
       merged.sort((a, b) => b.harvestDate.compareTo(a.harvestDate));
-      setState(() { _harvests = merged; _isLoading = false; });
+      
+      // Load finances
+      final localFin = await LocalDatabase.instance.getAllFinances();
+      _pendingCount += localFin.where((f) => f.syncStatus == 'pending').length;
+      List<LandFinanceModel> serverFin = [];
+      try { serverFin = await LandRepository().getAllFinancesFromServer(); } catch (_) {}
+      final finIds = localFin.map((f) => f.id).toSet();
+      final mergedFin = <LandFinanceModel>[...localFin, ...serverFin.where((f) => !finIds.contains(f.id))];
+
+      setState(() { 
+        _harvests = merged; 
+        _finances = mergedFin;
+        _isLoading = false; 
+      });
     } catch (e) { setState(() => _isLoading = false); }
   }
 
   Future<void> _syncData() async {
     setState(() => _isSyncing = true);
     try {
-      final n = await HarvestRepository().syncPendingHarvests();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$n data disinkronkan!')));
+      final n1 = await HarvestRepository().syncPendingHarvests();
+      final n2 = await LandRepository().syncPendingFinances();
+      final total = n1 + n2;
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$total data disinkronkan!')));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal sync: $e')));
     }
@@ -724,27 +744,6 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
   // ════════════════════════════════════════════════════════════════
   Widget _landsTab() {
     final c = context.dc;
-    Widget landCard(LandModel l) {
-      final total = _harvests.where((h) => h.landId == l.id).fold(0.0, (s, h) => s + h.weightKg);
-      return Container(padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: c.border)),
-        child: Row(children: [
-          Container(width: 4, height: 40, decoration: BoxDecoration(
-              color: AppColors.primary, borderRadius: BorderRadius.circular(2))),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(l.name, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: c.textPrimary)),
-            const SizedBox(height: 4),
-            Text('${l.sizeHectares} Ha', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted)),
-          ])),
-          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text(total.toStringAsFixed(1), style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: c.textPrimary)),
-            Text('KG', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: c.textMuted)),
-          ]),
-        ]),
-      );
-    }
 
     return LayoutBuilder(builder: (context, constraints) {
       final isWide = constraints.maxWidth >= 700;
@@ -753,8 +752,12 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
           constraints: const BoxConstraints(maxWidth: 1400),
           child: Row(children: [
             Expanded(child: Text('${_lands.length} lahan terdaftar', style: GoogleFonts.inter(color: c.textMuted, fontSize: 13))),
-            TextButton.icon(icon: const Icon(Icons.open_in_new_rounded, size: 16), label: const Text('Kelola'),
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManageLandsPage())).then((_) => _loadData())),
+            Container(decoration: BoxDecoration(gradient: AppColors.gradientPrimary, borderRadius: BorderRadius.circular(10)),
+              child: TextButton.icon(
+                style: TextButton.styleFrom(iconColor: Colors.white, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
+                icon: const Icon(Icons.add_rounded, size: 16), label: Text('Tambah Lahan', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                onPressed: _showAddLandDialog,
+              )),
           ]),
         ))),
         Expanded(child: _lands.isEmpty
@@ -767,13 +770,13 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                 child: isWide
                     ? GridView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: constraints.maxWidth >= 1000 ? 3 : 2,
-                          mainAxisSpacing: 10, crossAxisSpacing: 12, mainAxisExtent: 78),
+                        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 400, // Kembalikan ke 400
+                          mainAxisSpacing: 16, crossAxisSpacing: 16, mainAxisExtent: 310), // Extent lebih besar agar ada ruang shadow bloom
                         itemCount: _lands.length,
-                        itemBuilder: (_, i) => landCard(_lands[i]))
+                        itemBuilder: (_, i) => _buildLandCard(_lands[i], c))
                     : ListView.builder(padding: const EdgeInsets.symmetric(horizontal: 16), itemCount: _lands.length,
-                        itemBuilder: (_, i) => Padding(padding: const EdgeInsets.only(bottom: 8), child: landCard(_lands[i]))),
+                        itemBuilder: (_, i) => Padding(padding: const EdgeInsets.only(bottom: 20), child: _buildLandCard(_lands[i], c))),
               ))),
       ]);
     });
@@ -1139,6 +1142,730 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
               if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Data offline dihapus')));
               _loadData(); }, child: const Text('Hapus'))),
       ]));
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // LAND MANAGEMENT
+  // ════════════════════════════════════════════════════════════════
+  Widget _buildLandCard(LandModel land, DColors c) {
+    final owner = _stakeholders.where((s) => s.id == land.stakeholderId).firstOrNull;
+    final total = _harvests.where((h) => h.landId == land.id).fold(0.0, (s, h) => s + h.weightKg);
+
+    bool isHovered = false;
+
+    return StatefulBuilder(
+      builder: (ctx, ss) => MouseRegion(
+        onEnter: (_) => ss(() => isHovered = true),
+        onExit: (_) => ss(() => isHovered = false),
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: () => _showLandDetailModal(land, owner?.name ?? owner?.email ?? 'Tidak diketahui', total, c),
+          child: Padding(
+            padding: const EdgeInsets.all(12), // Ruang lega untuk sebaran shadow box
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+              decoration: BoxDecoration(
+                color: c.surface, 
+                borderRadius: BorderRadius.circular(16), 
+                border: Border.all(color: isHovered ? AppColors.cyan : c.border, width: isHovered ? 1.5 : 1.0),
+                boxShadow: isHovered ? [BoxShadow(color: AppColors.cyan.withOpacity(0.2), blurRadius: 16, spreadRadius: 0, offset: const Offset(0, 0))] : [],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(15), // Clip children so they don't cover the border
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  // Gambar Header
+                  SizedBox(
+                  height: 120, // Kembalikan tinggi image
+                  child: Stack(clipBehavior: Clip.none, children: [
+              Positioned.fill(
+                child: land.imageUrl != null && land.imageUrl!.isNotEmpty
+                    ? Image.network(land.imageUrl!, fit: BoxFit.cover, errorBuilder: (ctx, e, s) => Container(color: c.surface))
+                    : Image.network('https://images.unsplash.com/photo-1589308078052-9efaec11dbaf?q=80&w=800&auto=format&fit=crop', 
+                fit: BoxFit.cover, errorBuilder: (ctx, e, s) => Container(color: c.surface),
+              )),
+              Positioned.fill(child: Container(color: Colors.black.withOpacity(0.2))),
+              Positioned(top: 12, right: 12, child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: Colors.black.withOpacity(0.5), borderRadius: BorderRadius.circular(20)),
+                child: Row(children: [
+                  const Icon(Icons.aspect_ratio_rounded, color: AppColors.cyan, size: 10),
+                  const SizedBox(width: 4),
+                  Text('${land.sizeHectares} Hektar', style: GoogleFonts.inter(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+                ]),
+              )),
+              // Floating Icon Box di pojok kiri bawah image
+              Positioned(
+                bottom: -20, left: 16,
+                child: Container(
+                  width: 44, height: 44,
+                  decoration: BoxDecoration(color: AppColors.cyan.withOpacity(0.1), border: Border.all(color: AppColors.cyan, strokeAlign: BorderSide.strokeAlignOutside), borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.terrain_rounded, color: AppColors.cyan),
+                ),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 28), // Jarak untuk floating icon
+          // Informasi teks
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(children: [
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(land.name, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white)),
+                const SizedBox(height: 4),
+                Text('${land.treeCount} Batang  •  Pemilik ${owner?.name ?? 'Tidak diketahui'}', style: GoogleFonts.inter(fontSize: 10, color: c.textMuted), overflow: TextOverflow.ellipsis),
+              ])),
+              PopupMenuButton<String>(
+                icon: Icon(Icons.more_vert_rounded, size: 18, color: c.textMuted),
+                splashRadius: 18,
+                onSelected: (action) {
+                  if (action == 'edit') _showEditLandDialog(land);
+                  if (action == 'delete') _confirmDelete(land, c);
+                  if (action == 'margin') _showLandFinanceForm(land);
+                },
+                itemBuilder: (ctx) => [
+                  PopupMenuItem(value: 'margin', child: Row(children: [const Icon(Icons.request_quote_rounded, color: AppColors.violet, size: 16), const SizedBox(width: 8), Text('Pengeluaran', style: GoogleFonts.inter(fontWeight: FontWeight.w500))])),
+                  PopupMenuItem(value: 'edit', child: Row(children: [const Icon(Icons.edit_rounded, color: AppColors.cyan, size: 16), const SizedBox(width: 8), Text('Edit', style: GoogleFonts.inter(fontWeight: FontWeight.w500))])),
+                  PopupMenuItem(value: 'delete', child: Row(children: [const Icon(Icons.delete_outline_rounded, color: AppColors.rose, size: 16), const SizedBox(width: 8), Text('Hapus', style: GoogleFonts.inter(fontWeight: FontWeight.w500, color: AppColors.rose))])),
+                ],
+              ),
+            ]),
+          ),
+          const Spacer(),
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Divider(height: 1, color: c.border)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text('TOTAL PANEN', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w700, color: c.textMuted)),
+              Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
+                Text(total.toStringAsFixed(1), style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.white)),
+                const SizedBox(width: 4),
+                Text('KG', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.cyan)),
+              ]),
+            ]),
+          ),
+        ]), // closes Column
+        ), // closes ClipRRect
+      ), // closes AnimatedContainer
+    ), // closes Padding
+      ), // closes MouseRegion
+    ), // closes GestureDetector
+    ); // closes StatefulBuilder
+  }
+
+  void _showLandDetailModal(LandModel land, String ownerName, double total, DColors c) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Tutup Detail',
+      barrierColor: Colors.black.withOpacity(0.6),
+      transitionDuration: const Duration(milliseconds: 350),
+      pageBuilder: (ctx, anim1, anim2) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Container(
+          width: 800, // Diperbesar secara drastis!
+          decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: c.border)),
+          clipBehavior: Clip.antiAlias,
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // Header Image Box
+              SizedBox(
+                height: 300, // Gambar top jadi lebih megah
+                child: Stack(children: [
+                  Positioned.fill(child: land.imageUrl != null && land.imageUrl!.isNotEmpty 
+                      ? Image.network(land.imageUrl!, fit: BoxFit.cover, errorBuilder: (ctx, e, s) => Container(color: c.surface))
+                      : Image.network('https://images.unsplash.com/photo-1589308078052-9efaec11dbaf?q=80&w=800&auto=format&fit=crop', fit: BoxFit.cover, errorBuilder: (ctx, e, s) => Container(color: c.surface))),
+                  Positioned.fill(child: Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black.withOpacity(0.9)])))),
+                  
+                  // Action Buttons Cepat di Kanan Atas
+                  Positioned(top: 16, right: 16, child: Row(children: [
+                     _actionPill(Icons.request_quote_rounded, AppColors.violet, () { Navigator.pop(ctx); _showLandFinanceForm(land); }),
+                     const SizedBox(width: 8),
+                     _actionPill(Icons.edit_rounded, AppColors.cyan, () { Navigator.pop(ctx); _showEditLandDialog(land); }),
+                     const SizedBox(width: 8),
+                     _actionPill(Icons.delete_outline_rounded, AppColors.rose, () { Navigator.pop(ctx); _confirmDelete(land, c); }),
+                     const SizedBox(width: 16),
+                     _actionPill(Icons.close_rounded, Colors.white, () { Navigator.pop(ctx); }),
+                  ])),
+                  
+                  // Label Nama di Kiri Bawah
+                  Positioned(bottom: 20, left: 24, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                     Text(land.name, style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white)),
+                     const SizedBox(height: 6),
+                     Row(children: [
+                       const Icon(Icons.location_on_outlined, color: AppColors.cyan, size: 14),
+                       const SizedBox(width: 6),
+                       Text('Lihat di Peta (Batas Wilayah)', style: GoogleFonts.inter(color: AppColors.cyan, fontSize: 12, fontWeight: FontWeight.w600)),
+                     ])
+                  ])),
+                ]),
+              ),
+              
+              // 4 Kartu Detail (Luas, Pohon, Pemilik, Panen)
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(children: [
+                  Row(children: [
+                    Expanded(child: _detailCardInfo('LUAS LAHAN', Icons.map_outlined, '${land.sizeHectares}', 'Ha', c)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _detailCardInfo('JUMLAH POHON', Icons.nature_outlined, '${land.treeCount}', 'Batang', c)),
+                  ]),
+                  const SizedBox(height: 16),
+                  Row(children: [
+                    Expanded(child: _detailCardInfo('PEMILIK', Icons.person_outline, ownerName, '', c)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _detailCardInfo('TOTAL PANEN', Icons.scale_outlined, total.toStringAsFixed(1), 'KG', c, highlight: true)),
+                  ]),
+                ]),
+              ),
+              
+              // Bottom Footer Actions
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                   TextButton(onPressed: () => Navigator.pop(ctx), style: TextButton.styleFrom(foregroundColor: Colors.white), child: Text('Tutup', style: GoogleFonts.inter(fontWeight: FontWeight.w600))),
+                   const SizedBox(width: 16),
+                   ElevatedButton(
+                     style: ElevatedButton.styleFrom(backgroundColor: AppColors.cyan, foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                     onPressed: () {
+                       Navigator.pop(ctx);
+                       Navigator.push(context, MaterialPageRoute(builder: (_) => const InputHarvestForm())).then((r) {
+                         if (r == true) _loadData();
+                       });
+                     },
+                     child: Text('Input Panen', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                   ),
+                ]),
+              ),
+            ]),
+          ),
+        ),
+      ),
+      transitionBuilder: (context, anim1, anim2, child) {
+        return ScaleTransition(
+          scale: CurvedAnimation(parent: anim1, curve: Curves.easeOutBack),
+          child: FadeTransition(
+            opacity: anim1,
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _actionPill(IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+       onTap: onTap,
+       child: Container(
+         padding: const EdgeInsets.all(6),
+         decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle, border: Border.all(color: color.withOpacity(0.4))),
+         child: Icon(icon, color: color, size: 16),
+       ),
+    );
+  }
+
+  Widget _detailCardInfo(String title, IconData icon, String val, String unit, DColors c, {bool highlight = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      decoration: BoxDecoration(color: c.surfaceLight, borderRadius: BorderRadius.circular(12), border: Border.all(color: c.border)),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          if (highlight) Positioned(right: -10, bottom: -20, child: Icon(Icons.scale_rounded, size: 80, color: Colors.white.withOpacity(0.03))),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Icon(icon, size: 12, color: c.textMuted), const SizedBox(width: 6),
+              Text(title, style: GoogleFonts.inter(color: c.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
+            ]),
+            const SizedBox(height: 12),
+            Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
+              Flexible(child: Text(val, style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800), overflow: TextOverflow.ellipsis)),
+              if (unit.isNotEmpty) ...[
+                 const SizedBox(width: 4),
+                 Text(unit, style: GoogleFonts.inter(color: highlight ? AppColors.cyan : c.textSecondary, fontSize: 11, fontWeight: FontWeight.w600)),
+              ]
+            ]),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Future<Uint8List?> _pickAndCropImage() async {
+    final picker = ImagePicker();
+    XFile? pickedFile;
+    
+    try {
+      pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error ImagePicker: $e')));
+      return null;
+    }
+    
+    if (pickedFile == null) return null;
+
+    final bool isDesktop = !kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.macOS);
+    
+    if (isDesktop) {
+       return await pickedFile.readAsBytes();
+    }
+
+    try {
+      final croppedFile = await ImageCropper().cropImage(
+        sourcePath: pickedFile.path,
+        aspectRatio: const CropAspectRatio(ratioX: 4, ratioY: 3),
+        uiSettings: [
+          AndroidUiSettings(
+              toolbarTitle: 'Potong Foto Lahan',
+              toolbarColor: AppColors.primary,
+              toolbarWidgetColor: Colors.white,
+              initAspectRatio: CropAspectRatioPreset.ratio4x3,
+              lockAspectRatio: true),
+          IOSUiSettings(title: 'Potong Foto Lahan', aspectRatioLockEnabled: true),
+          WebUiSettings(context: context)
+        ],
+      );
+
+      if (croppedFile != null) {
+        return await croppedFile.readAsBytes();
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error Cropper: $e')));
+      return await pickedFile.readAsBytes();
+    }
+    
+    return null;
+  }
+
+  void _showAddLandDialog() {
+    final nameController = TextEditingController();
+    final sizeController = TextEditingController();
+    final treeCountController = TextEditingController();
+    String? selectedStakeholderId;
+    Uint8List? selectedImageBytes;
+    bool isUploading = false;
+
+    showDialog(context: context, barrierDismissible: false, builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setDialogState) => AlertDialog(
+        title: Text('Tambah Lahan Baru', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          // Image Picker Area
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () async {
+              try {
+                final bytes = await _pickAndCropImage();
+                if (bytes != null) setDialogState(() => selectedImageBytes = bytes);
+              } catch (e) {
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('OnTap Error: $e')));
+              }
+            },
+            child: Container(
+              height: 120, width: double.infinity,
+              decoration: BoxDecoration(
+                color: context.dc.surfaceLight, borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: context.dc.border),
+                image: selectedImageBytes != null ? DecorationImage(image: MemoryImage(selectedImageBytes!), fit: BoxFit.cover) : null,
+              ),
+              child: selectedImageBytes == null
+                  ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(Icons.add_a_photo_outlined, color: AppColors.cyan, size: 30),
+                      const SizedBox(height: 8),
+                      Text('Tambahkan Foto (4:3)', style: GoogleFonts.inter(color: context.dc.textMuted, fontSize: 12)),
+                    ])
+                  : Align(alignment: Alignment.topRight, child: Container(margin: const EdgeInsets.all(8), decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle), child: IconButton(icon: const Icon(Icons.close, color: Colors.white, size: 16), onPressed: () => setDialogState(() => selectedImageBytes = null)))),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Nama Lahan', prefixIcon: Icon(Icons.terrain))),
+          const SizedBox(height: 12),
+          TextField(controller: sizeController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Luas (Hektar)', prefixIcon: Icon(Icons.straighten))),
+          const SizedBox(height: 12),
+          TextField(controller: treeCountController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Jumlah Batang', prefixIcon: Icon(Icons.nature_people))),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            value: selectedStakeholderId, decoration: const InputDecoration(labelText: 'Pemilik (Stakeholder)', prefixIcon: Icon(Icons.person)),
+            items: _stakeholders.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name.isEmpty ? s.email : s.name))).toList(),
+            onChanged: (val) => setDialogState(() => selectedStakeholderId = val),
+          ),
+        ])),
+        actions: [
+          TextButton(onPressed: isUploading ? null : () => Navigator.pop(ctx), child: const Text('Batal')),
+          Container(decoration: BoxDecoration(gradient: AppColors.gradientPrimary, borderRadius: BorderRadius.circular(10)),
+            child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, elevation: 0),
+              onPressed: isUploading ? null : () async {
+                if (nameController.text.isEmpty || sizeController.text.isEmpty || selectedStakeholderId == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Semua field wajib diisi (Foto opsional)'))); return;
+                }
+                setDialogState(() => isUploading = true);
+                try {
+                  final newLand = LandModel(
+                    name: nameController.text, sizeHectares: double.tryParse(sizeController.text) ?? 0,
+                    treeCount: int.tryParse(treeCountController.text) ?? 0, stakeholderId: selectedStakeholderId!,
+                  );
+                  String? uploadedUrl;
+                  if (selectedImageBytes != null) {
+                    uploadedUrl = await LandRepository().uploadLandImage(newLand.id, 'image.jpg', selectedImageBytes!, '.jpg');
+                  }
+                  
+                  // Update model with URL and save
+                  final finalLand = LandModel(
+                    id: newLand.id, name: newLand.name, sizeHectares: newLand.sizeHectares,
+                    treeCount: newLand.treeCount, stakeholderId: newLand.stakeholderId,
+                    imageUrl: uploadedUrl, createdAt: newLand.createdAt,
+                  );
+                  await LandRepository().addLand(finalLand);
+                  
+                  if (mounted) Navigator.pop(ctx);
+                  _loadData(); // Re-fetch
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lahan ditambahkan')));
+                } catch (e) {
+                  setDialogState(() => isUploading = false);
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal menambahkan: $e')));
+                }
+              }, child: isUploading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Simpan'))),
+        ],
+      )));
+  }
+
+  void _showEditLandDialog(LandModel land) {
+    final nameController = TextEditingController(text: land.name);
+    final sizeController = TextEditingController(text: land.sizeHectares.toString());
+    final treeCountController = TextEditingController(text: land.treeCount.toString());
+    String? selectedStakeholderId = land.stakeholderId;
+    Uint8List? selectedImageBytes;
+    bool isUploading = false;
+    bool removeExistingPhoto = false;
+
+    showDialog(context: context, barrierDismissible: false, builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setDialogState) => AlertDialog(
+        title: Text('Edit Lahan', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          // Image Picker Area
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () async {
+              try {
+                final bytes = await _pickAndCropImage();
+                if (bytes != null) setDialogState(() { selectedImageBytes = bytes; removeExistingPhoto = false; });
+              } catch (e) {
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('OnTap Error: $e')));
+              }
+            },
+            child: Container(
+              height: 120, width: double.infinity,
+              decoration: BoxDecoration(
+                color: context.dc.surfaceLight, borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: context.dc.border),
+                image: selectedImageBytes != null 
+                    ? DecorationImage(image: MemoryImage(selectedImageBytes!), fit: BoxFit.cover) 
+                    : (!removeExistingPhoto && land.imageUrl != null)
+                        ? DecorationImage(image: NetworkImage(land.imageUrl!), fit: BoxFit.cover)
+                        : null,
+              ),
+              child: (selectedImageBytes == null && (removeExistingPhoto || land.imageUrl == null))
+                  ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(Icons.add_a_photo_outlined, color: AppColors.cyan, size: 30),
+                      const SizedBox(height: 8),
+                      Text('Ubah Foto (4:3)', style: GoogleFonts.inter(color: context.dc.textMuted, fontSize: 12)),
+                    ])
+                  : Align(alignment: Alignment.topRight, child: Container(margin: const EdgeInsets.all(8), decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle), child: IconButton(icon: const Icon(Icons.close, color: Colors.white, size: 16), onPressed: () => setDialogState(() { selectedImageBytes = null; removeExistingPhoto = true; })))),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Nama Lahan', prefixIcon: Icon(Icons.terrain))),
+          const SizedBox(height: 12),
+          TextField(controller: sizeController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Luas (Hektar)', prefixIcon: Icon(Icons.straighten))),
+          const SizedBox(height: 12),
+          TextField(controller: treeCountController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Jumlah Batang', prefixIcon: Icon(Icons.nature_people))),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            value: _stakeholders.any((s) => s.id == selectedStakeholderId) ? selectedStakeholderId : null,
+            decoration: const InputDecoration(labelText: 'Pemilik (Stakeholder)', prefixIcon: Icon(Icons.person)),
+            items: _stakeholders.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name.isEmpty ? s.email : s.name))).toList(),
+            onChanged: (val) => setDialogState(() => selectedStakeholderId = val),
+          ),
+        ])),
+        actions: [
+          TextButton(onPressed: isUploading ? null : () => Navigator.pop(ctx), child: const Text('Batal')),
+          Container(decoration: BoxDecoration(gradient: AppColors.gradientPrimary, borderRadius: BorderRadius.circular(10)),
+            child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, elevation: 0),
+              onPressed: isUploading ? null : () async {
+                if (nameController.text.isEmpty || sizeController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nama dan luas wajib diisi'))); return;
+                }
+                setDialogState(() => isUploading = true);
+                try {
+                  String? uploadedUrl;
+                  if (selectedImageBytes != null) {
+                    uploadedUrl = await LandRepository().uploadLandImage(land.id, 'image.jpg', selectedImageBytes!, '.jpg');
+                  } else if (removeExistingPhoto) {
+                    uploadedUrl = ''; // Akan diproses sebentar lagi, atau bisa null string jika diset di repo 
+                  }
+                  
+                  await LandRepository().updateLand(land.id, name: nameController.text.trim(),
+                    sizeHectares: double.tryParse(sizeController.text), treeCount: int.tryParse(treeCountController.text), 
+                    stakeholderId: selectedStakeholderId, imageUrl: uploadedUrl ?? land.imageUrl);
+                    
+                  if (mounted) Navigator.pop(ctx);
+                  _loadData();
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lahan diperbarui')));
+                } catch (e) {
+                  setDialogState(() => isUploading = false);
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal memperbarui: $e')));
+                }
+              }, child: isUploading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Simpan'))),
+        ],
+      )));
+  }
+
+  Future<void> _confirmDelete(LandModel land, DColors c) async {
+    final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: Text('Hapus Lahan?', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+      content: Text('Yakin ingin menghapus "${land.name}"? Semua data panen terkait juga akan dihapus.', style: GoogleFonts.inter(color: c.textSecondary)),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+        Container(decoration: BoxDecoration(gradient: AppColors.gradientRose, borderRadius: BorderRadius.circular(10)),
+          child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, elevation: 0),
+            onPressed: () => Navigator.pop(ctx, true), child: const Text('Hapus'))),
+      ]));
+    if (confirm == true) {
+      try { await LandRepository().deleteLand(land.id); _loadData(); }
+      catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal menghapus: $e'))); }
+    }
+  }
+
+  void _showLandFinanceForm(LandModel land) {
+    final c = context.dc;
+    int selM = DateTime.now().month;
+    int selY = DateTime.now().year;
+
+    final fCtl = TextEditingController();
+    final wCtl = TextEditingController();
+    final pCtl = TextEditingController();
+    final prCtl = TextEditingController();
+    final kgCtl = TextEditingController(text: "2500");
+
+    double pricePerKg = 2500;
+    double fertilizerMonthly = 0;
+    double workerMonthly = 0;
+    double pesticideYearly = 0;
+    double pruningYearly = 0;
+    String? currentId;
+
+    void loadForPeriod() {
+      final fin = _finances.where((f) => f.landId == land.id && f.periodMonth == selM && f.periodYear == selY).firstOrNull;
+      if (fin != null) {
+        currentId = fin.id;
+        fCtl.text = fin.fertilizerCost > 0 ? fin.fertilizerCost.toStringAsFixed(0) : '';
+        wCtl.text = fin.workerCost > 0 ? fin.workerCost.toStringAsFixed(0) : '';
+        pCtl.text = fin.pesticideYearlyCost > 0 ? fin.pesticideYearlyCost.toStringAsFixed(0) : '';
+        prCtl.text = fin.pruningYearlyCost > 0 ? fin.pruningYearlyCost.toStringAsFixed(0) : '';
+        kgCtl.text = fin.pricePerKg > 0 ? fin.pricePerKg.toStringAsFixed(0) : '2500';
+      } else {
+        currentId = null;
+        fCtl.text = ''; wCtl.text = ''; kgCtl.text = '2500';
+        final yrFin = _finances.where((f) => f.landId == land.id && f.periodYear == selY).toList();
+        yrFin.sort((a,b) => b.periodMonth.compareTo(a.periodMonth));
+        if (yrFin.isNotEmpty) {
+          pCtl.text = yrFin.first.pesticideYearlyCost > 0 ? yrFin.first.pesticideYearlyCost.toStringAsFixed(0) : '';
+          prCtl.text = yrFin.first.pruningYearlyCost > 0 ? yrFin.first.pruningYearlyCost.toStringAsFixed(0) : '';
+        } else {
+          pCtl.text = ''; prCtl.text = '';
+        }
+      }
+    }
+    
+    loadForPeriod();
+
+    final fmt = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) {
+        void calc() {
+          pricePerKg = double.tryParse(kgCtl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+          fertilizerMonthly = double.tryParse(fCtl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+          workerMonthly = double.tryParse(wCtl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+          pesticideYearly = double.tryParse(pCtl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+          pruningYearly = double.tryParse(prCtl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+        }
+        calc();
+
+        double totalTonnage = _harvests.where((h) => h.landId == land.id && h.harvestDate.month == selM && h.harvestDate.year == selY)
+            .fold(0.0, (sum, h) => sum + h.weightKg);
+
+        double pestMonthly = pesticideYearly / 12;
+        double prunMonthly = pruningYearly / 12;
+        double totalMonthlyCost = fertilizerMonthly + workerMonthly + pestMonthly + prunMonthly;
+        double grossRevenue = totalTonnage * pricePerKg; 
+        double margin = grossRevenue - totalMonthlyCost; 
+
+        Widget inputField(String label, String suffix, TextEditingController ctrl) {
+           return Padding(
+             padding: const EdgeInsets.only(bottom: 12),
+             child: TextField(
+               controller: ctrl, keyboardType: TextInputType.number,
+               onChanged: (_) => setDialogState(calc),
+               style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13),
+               decoration: InputDecoration(
+                 labelText: label, suffixText: suffix, labelStyle: GoogleFonts.inter(fontSize: 12),
+                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                 filled: true, fillColor: c.surfaceLight,
+               ),
+             ),
+           );
+        }
+        
+        Widget tr(String label, double val, {bool isB = false, Color? color}) {
+          return Padding(padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text(label, style: GoogleFonts.inter(fontSize: 12, color: isB ? c.textPrimary : c.textSecondary, fontWeight: isB ? FontWeight.w700 : FontWeight.w500)),
+              Text(fmt.format(val), style: GoogleFonts.inter(fontSize: 13, color: color ?? c.textPrimary, fontWeight: isB ? FontWeight.w800 : FontWeight.w600)),
+            ]));
+        }
+
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.9,
+          decoration: BoxDecoration(color: c.surface, borderRadius: const BorderRadius.vertical(top: Radius.circular(24))),
+          child: Column(children: [
+            const SizedBox(height: 12),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: c.surfaceLight, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            Text('Catat Pengeluaran Bulanan', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: c.textPrimary)),
+            Text('${land.name} (${land.sizeHectares} Ha)', style: GoogleFonts.inter(fontSize: 13, color: c.textMuted)),
+            const SizedBox(height: 12),
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Row(children: [
+              Expanded(child: DropdownButtonFormField<int>(
+                value: selM,
+                items: List.generate(12, (i) => DropdownMenuItem(value: i+1, child: Text('Bulan ${i+1}'))),
+                onChanged: (v) { setDialogState(() { selM = v!; loadForPeriod(); calc(); }); },
+                decoration: const InputDecoration(labelText: 'Bulan', border: OutlineInputBorder()),
+              )),
+              const SizedBox(width: 10),
+              Expanded(child: TextFormField(
+                initialValue: selY.toString(),
+                keyboardType: TextInputType.number,
+                onChanged: (v) { final y = int.tryParse(v); if (y!=null && y>2000) { setDialogState(() { selY = y; loadForPeriod(); calc(); }); }},
+                decoration: const InputDecoration(labelText: 'Tahun', border: OutlineInputBorder()),
+              )),
+            ])),
+            const Divider(height: 24),
+            Expanded(child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              children: [
+                Text('1. Variabel Harga & Biaya (Rp)', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, color: c.textPrimary)),
+                const SizedBox(height: 12),
+                inputField('Harga Sawit saat ini (per KG)', '/kg', kgCtl),
+                inputField('Kebutuhan Pupuk (Bulan Ini)', '/bln', fCtl),
+                inputField('Jasa Pekerja (Bulan Ini)', '/bln', wCtl),
+                inputField('Kebutuhan Pestisida (Tahunan)', '/thn', pCtl),
+                inputField('Kebutuhan Pruning (Tahunan)', '/thn', prCtl),
+
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: AppColors.violet.withOpacity(0.05), borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.violet.withOpacity(0.2))),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('2. Kalkulasi Rincian Bulanan', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.violet)),
+                    const SizedBox(height: 12),
+                    tr('Pupuk', fertilizerMonthly),
+                    tr('Pekerja', workerMonthly),
+                    tr('Pestisida (Dibagi 12 bln)', pestMonthly),
+                    tr('Pruning (Dibagi 12 bln)', prunMonthly),
+                    const Divider(height: 16),
+                    tr('Total Pengeluaran Bulan Ini', totalMonthlyCost, isB: true),
+                  ]),
+                ),
+
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.05), borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.primary.withOpacity(0.2))),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('3. Ringkasan Margin Bulan Ini', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                    const SizedBox(height: 4),
+                    Text('Berdasarkan total tonase bulan $selM/$selY: ${totalTonnage.toStringAsFixed(1)} KG', 
+                        style: GoogleFonts.inter(fontSize: 11, height: 1.4, color: c.textMuted)),
+                    const SizedBox(height: 12),
+                    tr('Pendapatan (Tonase x Harga)', grossRevenue),
+                    tr('Total Pengeluaran Lahan', totalMonthlyCost, color: AppColors.rose),
+                    const Divider(height: 16),
+                    tr('Margin (Laba Bersih)', margin, isB: true, color: margin >= 0 ? Colors.green : AppColors.rose),
+                  ]),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(width: double.infinity, height: 48, child: Container(
+                  decoration: BoxDecoration(gradient: AppColors.gradientPrimary, borderRadius: BorderRadius.circular(12)),
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, elevation: 0),
+                    onPressed: () async {
+                      try {
+                        final fin = LandFinanceModel(
+                          id: currentId,
+                          landId: land.id,
+                          periodMonth: selM,
+                          periodYear: selY,
+                          pricePerKg: pricePerKg,
+                          fertilizerCost: fertilizerMonthly,
+                          workerCost: workerMonthly,
+                          pesticideYearlyCost: pesticideYearly,
+                          pruningYearlyCost: pruningYearly,
+                        );
+                        await LandRepository().upsertFinance(fin);
+                        if (mounted) Navigator.pop(ctx);
+                        _loadData();
+                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Catatan pengeluaran disimpan!')));
+                      } catch (e) {
+                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal menyimpan: $e')));
+                      }
+                    },
+                    child: Text('Simpan Rekapan Finance', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14)),
+                  ),
+                )),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), side: const BorderSide(color: AppColors.rose)),
+                    icon: const Icon(Icons.picture_as_pdf_rounded, color: AppColors.rose, size: 18),
+                    label: Text('Export PDF', style: GoogleFonts.inter(color: AppColors.rose, fontWeight: FontWeight.w600, fontSize: 13)),
+                    onPressed: () async {
+                       try {
+                         final fin = LandFinanceModel(id: currentId ?? 'temp', landId: land.id, periodMonth: selM, periodYear: selY, pricePerKg: pricePerKg, fertilizerCost: fertilizerMonthly, workerCost: workerMonthly, pesticideYearlyCost: pesticideYearly, pruningYearlyCost: pruningYearly);
+                         final mH = _harvests.where((h) => h.landId == land.id && h.harvestDate.month == selM && h.harvestDate.year == selY).toList();
+                         await ExportService.exportFinanceToPDF(context, land, fin, mH);
+                       } catch (e) {
+                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal export PDF: $e')));
+                       }
+                    },
+                  )),
+                  const SizedBox(width: 12),
+                  Expanded(child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), side: const BorderSide(color: Colors.green)),
+                    icon: const Icon(Icons.table_chart_rounded, color: Colors.green, size: 18),
+                    label: Text('Export Excel', style: GoogleFonts.inter(color: Colors.green, fontWeight: FontWeight.w600, fontSize: 13)),
+                    onPressed: () async {
+                       try {
+                         final fin = LandFinanceModel(id: currentId ?? 'temp', landId: land.id, periodMonth: selM, periodYear: selY, pricePerKg: pricePerKg, fertilizerCost: fertilizerMonthly, workerCost: workerMonthly, pesticideYearlyCost: pesticideYearly, pruningYearlyCost: pruningYearly);
+                         final mH = _harvests.where((h) => h.landId == land.id && h.harvestDate.month == selM && h.harvestDate.year == selY).toList();
+                         await ExportService.exportFinanceToExcel(land, fin, mH);
+                       } catch (e) {
+                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal export Excel: $e')));
+                       }
+                    },
+                  )),
+                ]),
+                const SizedBox(height: 40),
+              ],
+            )),
+          ]),
+        );
+      }),
+    );
   }
 }
 

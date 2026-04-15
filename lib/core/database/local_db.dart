@@ -6,6 +6,7 @@ class LocalDatabase {
   static final LocalDatabase instance = LocalDatabase._init();
   static const String _storageKey = 'offline_harvests';
   static const String _landsKey = 'cached_lands';
+  static const String _financesKey = 'offline_finances';
 
   LocalDatabase._init();
 
@@ -71,6 +72,7 @@ class LocalDatabase {
   Future<void> clearDatabase() async {
     final prefs = await _prefs;
     await prefs.remove(_storageKey);
+    await prefs.remove(_financesKey);
   }
 
   Future<void> _saveHarvests(List<HarvestModel> harvests) async {
@@ -94,5 +96,47 @@ class LocalDatabase {
 
     final List<dynamic> decoded = jsonDecode(jsonString);
     return decoded.map((json) => LandModel.fromJson(json)).toList();
+  }
+
+  // ==================== LAND FINANCES OPERATIONS ====================
+
+  Future<void> insertFinance(LandFinanceModel finance) async {
+    final finances = await getAllFinances();
+    final index = finances.indexWhere((f) => f.id == finance.id);
+    if (index >= 0) {
+      finances[index] = finance;
+    } else {
+      finances.add(finance);
+    }
+    await _saveFinances(finances);
+  }
+
+  Future<List<LandFinanceModel>> getAllFinances() async {
+    final prefs = await _prefs;
+    final String? jsonString = prefs.getString(_financesKey);
+    if (jsonString == null) return [];
+    
+    final List<dynamic> decoded = jsonDecode(jsonString);
+    return decoded.map((json) => LandFinanceModel.fromJson(json)).toList();
+  }
+
+  Future<List<LandFinanceModel>> getPendingFinances() async {
+    final finances = await getAllFinances();
+    return finances.where((f) => f.syncStatus == 'pending').toList();
+  }
+
+  Future<void> markFinanceAsSynced(String id) async {
+    final finances = await getAllFinances();
+    final index = finances.indexWhere((f) => f.id == id);
+    if (index >= 0) {
+      finances[index] = finances[index].copyWith(syncStatus: 'synced');
+      await _saveFinances(finances);
+    }
+  }
+
+  Future<void> _saveFinances(List<LandFinanceModel> finances) async {
+    final prefs = await _prefs;
+    final jsonString = jsonEncode(finances.map((f) => f.toJson()).toList());
+    await prefs.setString(_financesKey, jsonString);
   }
 }
