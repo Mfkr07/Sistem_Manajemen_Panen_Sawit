@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
@@ -20,7 +21,7 @@ class HarvestRepository {
         await LocalDatabase.instance.markAsSynced(harvest.id);
         syncedCount++;
       } catch (e) {
-        print('Gagal sinkronisasi data ${harvest.id}: $e');
+        debugPrint('Gagal sinkronisasi data ${harvest.id}: $e');
       }
     }
     return syncedCount;
@@ -35,7 +36,7 @@ class HarvestRepository {
           .order('harvest_date', ascending: false);
       return response.map<HarvestModel>((e) => HarvestModel.fromJson(e)).toList();
     } catch (e) {
-      print('Gagal mengambil data dari server: $e');
+      debugPrint('Gagal mengambil data dari server: $e');
       return [];
     }
   }
@@ -51,7 +52,7 @@ class HarvestRepository {
           .order('harvest_date', ascending: false);
       return response.map<HarvestModel>((e) => HarvestModel.fromJson(e)).toList();
     } catch (e) {
-      print('Gagal mengambil data panen stakeholder: $e');
+      debugPrint('Gagal mengambil data panen stakeholder: $e');
       return [];
     }
   }

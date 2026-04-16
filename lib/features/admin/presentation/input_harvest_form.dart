@@ -55,6 +55,7 @@ class _InputHarvestFormState extends State<InputHarvestForm> {
       lastDate: DateTime.now(),
     );
     if (picked != null) {
+      if (!mounted) return;
       // Also pick time
       final time = await showTimePicker(
         context: context,
@@ -104,9 +105,11 @@ class _InputHarvestFormState extends State<InputHarvestForm> {
         Navigator.pop(context, true);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal menyimpan: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal menyimpan: $e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -147,13 +150,13 @@ class _InputHarvestFormState extends State<InputHarvestForm> {
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: AppColors.cyan.withOpacity(0.08),
+                          color: AppColors.cyan.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppColors.cyan.withOpacity(0.2)),
+                          border: Border.all(color: AppColors.cyan.withValues(alpha: 0.2)),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.info_outline_rounded, color: AppColors.cyan, size: 18),
+                            const Icon(Icons.info_outline_rounded, color: AppColors.cyan, size: 18),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
@@ -175,9 +178,9 @@ class _InputHarvestFormState extends State<InputHarvestForm> {
                               ? Container(
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
-                                    color: AppColors.amber.withOpacity(0.08),
+                                    color: AppColors.amber.withValues(alpha: 0.08),
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: AppColors.amber.withOpacity(0.2)),
+                                    border: Border.all(color: AppColors.amber.withValues(alpha: 0.2)),
                                   ),
                                   child: Text(
                                     'Belum ada lahan terdaftar. Tambahkan lahan terlebih dahulu di menu Manajemen Lahan.',
@@ -185,7 +188,7 @@ class _InputHarvestFormState extends State<InputHarvestForm> {
                                   ),
                                 )
                               : DropdownButtonFormField<String>(
-                                  value: _selectedLandId,
+                                  initialValue: _selectedLandId,
                                   decoration: const InputDecoration(
                                     prefixIcon: Icon(Icons.terrain),
                                     hintText: 'Pilih lahan...',
@@ -242,7 +245,7 @@ class _InputHarvestFormState extends State<InputHarvestForm> {
                         decoration: BoxDecoration(
                           gradient: AppColors.gradientPrimary,
                           borderRadius: BorderRadius.circular(12),
-                          boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))],
+                          boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4))],
                         ),
                         child: ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(

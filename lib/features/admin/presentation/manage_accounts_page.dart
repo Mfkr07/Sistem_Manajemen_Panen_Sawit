@@ -75,7 +75,7 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
                 const SizedBox(height: 16),
                 // Role
                 DropdownButtonFormField<String>(
-                  value: selectedRole,
+                  initialValue: selectedRole,
                   decoration: const InputDecoration(
                     labelText: 'Role',
                     prefixIcon: Icon(Icons.admin_panel_settings_outlined),
@@ -101,25 +101,26 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, elevation: 0),
                 onPressed: () async {
+                  final navigator = Navigator.of(ctx);
+                  final messenger = ScaffoldMessenger.of(context);
                   try {
                     await _repo.updateUser(
                       user.id,
                       name: nameController.text.trim(),
                       role: selectedRole,
                     );
-                    if (mounted) Navigator.pop(ctx);
+                    if (!mounted) return;
+                    navigator.pop();
                     _loadUsers();
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Profil berhasil diperbarui'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    }
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Profil berhasil diperbarui'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
                   } catch (e) {
                     if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      messenger.showSnackBar(
                         SnackBar(content: Text('Gagal memperbarui: $e')),
                       );
                     }
@@ -239,12 +240,12 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
-                        color: AppColors.cyan.withOpacity(0.06),
+                        color: AppColors.cyan.withValues(alpha: 0.06),
                         border: Border(bottom: BorderSide(color: c.border)),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.info_outline_rounded, color: AppColors.cyan, size: 16),
+                          const Icon(Icons.info_outline_rounded, color: AppColors.cyan, size: 16),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -342,7 +343,7 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text('Anda', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.primary)),
@@ -355,7 +356,7 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: (isAdmin ? AppColors.cyan : AppColors.violet).withOpacity(0.1),
+                color: (isAdmin ? AppColors.cyan : AppColors.violet).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -375,7 +376,7 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
             PopupMenuItem(
               value: 'edit',
               child: Row(children: [
-                Icon(Icons.edit_rounded, color: AppColors.cyan, size: 18),
+                const Icon(Icons.edit_rounded, color: AppColors.cyan, size: 18),
                 const SizedBox(width: 10),
                 Text('Edit Profil', style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
               ]),
@@ -384,7 +385,7 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
               PopupMenuItem(
                 value: 'delete',
                 child: Row(children: [
-                  Icon(Icons.delete_outline_rounded, color: AppColors.rose, size: 18),
+                  const Icon(Icons.delete_outline_rounded, color: AppColors.rose, size: 18),
                   const SizedBox(width: 10),
                   Text('Hapus', style: GoogleFonts.inter(fontWeight: FontWeight.w500, color: AppColors.rose)),
                 ]),
@@ -399,9 +400,9 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.25)),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

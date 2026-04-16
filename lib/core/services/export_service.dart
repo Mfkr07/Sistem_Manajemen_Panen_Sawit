@@ -42,7 +42,7 @@ class ExportService {
         },
         build: (pw.Context context) {
           return [
-            pw.Table.fromTextArray(
+            pw.TableHelper.fromTextArray(
               headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
               cellStyle: const pw.TextStyle(fontSize: 9),
               headers: ['No', 'Tanggal Panen', 'Nama Lahan', 'Berat (Kg)', 'Waktu Upload', 'Terakhir Diedit'],
@@ -167,7 +167,7 @@ class ExportService {
           return [
             pw.Text('A. Ringkasan Pengeluaran & Pemasukan', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 8),
-            pw.Table.fromTextArray(
+            pw.TableHelper.fromTextArray(
               cellAlignment: pw.Alignment.centerLeft,
               data: [
                 ['Pendapatan Kotor (Tonase x Harga/kg)', fmt.format(grossRevenue)],
@@ -185,7 +185,7 @@ class ExportService {
             if (harvests.isEmpty) 
                pw.Text('Tidak ada rekaman panen pada bulan ini.', style: pw.TextStyle(fontStyle: pw.FontStyle.italic))
             else
-               pw.Table.fromTextArray(
+               pw.TableHelper.fromTextArray(
                  headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
                  cellStyle: const pw.TextStyle(fontSize: 10),
                  headers: ['No', 'Tanggal Panen', 'Berat (Kg)', 'Estimasi Nilai (berdasarkan harga rata-rata)'],

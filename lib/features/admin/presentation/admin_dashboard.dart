@@ -49,9 +49,15 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
   late int _selectedYear;
 
   // History tab filter
+  int _historyViewIndex = 0; // 0 for Panen, 1 for Rekapitulasi
   String _histFilter = 'Semua';
   DateTime? _histStart;
   DateTime? _histEnd;
+  String? _histLandFilter;
+  
+  // Rekapitulasi filter
+  int? _rekapFilterMonth;
+  int? _rekapFilterYear;
 
   @override
   void initState() {
@@ -133,12 +139,16 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
   }
 
   List<HarvestModel> get _filteredHistory {
+    List<HarvestModel> result = _harvests;
+    if (_histLandFilter != null) {
+      result = result.where((h) => h.landId == _histLandFilter).toList();
+    }
     if (_histStart != null && _histEnd != null) {
-      return _harvests.where((h) =>
+      return result.where((h) =>
           h.harvestDate.isAfter(_histStart!.subtract(const Duration(days: 1))) &&
           h.harvestDate.isBefore(_histEnd!.add(const Duration(days: 1)))).toList();
     }
-    return List.of(_harvests);
+    return result.toList();
   }
 
   final _drawerItems = const [
@@ -172,9 +182,9 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
             Container(
               width: 46, height: 46,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.5),
               ),
               child: Center(child: Text(_userInitials,
                   style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white))),
@@ -198,7 +208,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
             decoration: BoxDecoration(
               gradient: AppColors.gradientPrimary,
               borderRadius: BorderRadius.circular(12),
-              boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))],
+              boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 2))],
             ),
             child: ListTile(
               leading: const Icon(Icons.add_rounded, color: Colors.white, size: 22),
@@ -228,7 +238,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
                   decoration: BoxDecoration(
-                    color: active ? AppColors.primary.withOpacity(0.1) : null,
+                    color: active ? AppColors.primary.withValues(alpha: 0.1) : null,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(children: [
@@ -260,11 +270,11 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Container(
             decoration: BoxDecoration(
-              color: AppColors.rose.withOpacity(0.08),
+              color: AppColors.rose.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
             ),
             child: ListTile(
-              leading: Icon(Icons.logout_rounded, color: AppColors.rose, size: 22),
+              leading: const Icon(Icons.logout_rounded, color: AppColors.rose, size: 22),
               title: Text('Keluar', style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600, color: AppColors.rose, fontSize: 14)),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -347,7 +357,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
         floatingActionButton: (isMobile || isTablet) ? Container(
           decoration: BoxDecoration(
             gradient: AppColors.gradientPrimary, shape: BoxShape.circle,
-            boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 4))],
+            boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.4), blurRadius: 12, offset: const Offset(0, 4))],
           ),
           child: FloatingActionButton(
             backgroundColor: Colors.transparent, elevation: 0,
@@ -422,10 +432,10 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
     final c = context.dc;
     return Padding(padding: const EdgeInsets.only(right: 8), child: IconButton(
       icon: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(
-        color: highlight ? AppColors.amber.withOpacity(0.15) : c.surfaceLight,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: highlight ? AppColors.amber.withOpacity(0.3) : c.border),
-      ), child: Badge(isLabelVisible: badge > 0, label: Text('$badge', style: const TextStyle(fontSize: 9)),
+        color: highlight ? AppColors.amber.withValues(alpha: 0.15) : c.surfaceLight,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: highlight ? AppColors.amber.withValues(alpha: 0.3) : c.border),
+      ), child: Badge(isLabelVisible: badge > 0, label: Text(badge.toString(), style: const TextStyle(fontSize: 9)),
           backgroundColor: AppColors.amber, child: Icon(icon, size: 18,
           color: highlight ? AppColors.amber : c.textSecondary))),
       onPressed: onTap,
@@ -486,7 +496,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
             // Stats — 4 columns on desktop, 3 on mobile
             if (isDesktop)
               Row(children: [
-                Expanded(child: _statCard(Icons.scale_rounded, '${_monthTotal.toStringAsFixed(1)}', 'KG',
+                Expanded(child: _statCard(Icons.scale_rounded, _monthTotal.toStringAsFixed(1), 'KG',
                     _selectedMonth == DateTime.now().month && _selectedYear == DateTime.now().year ? 'Bulan Ini' : _monthLabel,
                     AppColors.gradientPrimary, onTap: _showMonthPicker, chevron: true)),
                 const SizedBox(width: 12),
@@ -500,7 +510,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
               ])
             else
               Row(children: [
-                Expanded(child: _statCard(Icons.scale_rounded, '${_monthTotal.toStringAsFixed(1)}', 'KG',
+                Expanded(child: _statCard(Icons.scale_rounded, _monthTotal.toStringAsFixed(1), 'KG',
                     _selectedMonth == DateTime.now().month && _selectedYear == DateTime.now().year ? 'Bulan Ini' : _monthLabel,
                     AppColors.gradientPrimary, onTap: _showMonthPicker, chevron: true)),
                 const SizedBox(width: 10),
@@ -631,87 +641,346 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
   // ════════════════════════════════════════════════════════════════
   Widget _historyTab() {
     final c = context.dc;
-    final filters = ['Semua', '7 Hari', '1 Bulan', '3 Bulan', '6 Bulan', '1 Tahun', 'Kustom'];
-    final filtered = _filteredHistory;
-    final total = filtered.fold(0.0, (s, h) => s + h.weightKg);
-
     return LayoutBuilder(builder: (context, constraints) {
       final isWide = constraints.maxWidth >= 700;
       return Column(children: [
+        // --- Segemented Toggle ---
         Container(
+          width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(color: c.surface, border: Border(bottom: BorderSide(color: c.border))),
           child: Center(child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1400),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              isWide
-                  ? Wrap(spacing: 6, runSpacing: 6,
-                      children: filters.map((f) {
-                        final sel = _histFilter == f;
-                        return GestureDetector(
-                          onTap: () => _applyHistFilter(f),
-                          child: AnimatedContainer(duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                            decoration: BoxDecoration(
-                              gradient: sel ? AppColors.gradientPrimary : null,
-                              color: sel ? null : c.surfaceLight,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: sel ? Colors.transparent : c.border)),
-                            child: Text(f, style: GoogleFonts.inter(fontSize: 12,
-                                fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                                color: sel ? Colors.white : c.textMuted))));
-                      }).toList())
-                  : SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(
-                      children: filters.map((f) {
-                        final sel = _histFilter == f;
-                        return Padding(padding: const EdgeInsets.only(right: 6), child: GestureDetector(
-                          onTap: () => _applyHistFilter(f),
-                          child: AnimatedContainer(duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                            decoration: BoxDecoration(
-                              gradient: sel ? AppColors.gradientPrimary : null,
-                              color: sel ? null : c.surfaceLight,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: sel ? Colors.transparent : c.border)),
-                            child: Text(f, style: GoogleFonts.inter(fontSize: 12,
-                                fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                                color: sel ? Colors.white : c.textMuted)))));
-                      }).toList())),
-              const SizedBox(height: 10),
-              Row(children: [
-                Expanded(child: Text(
-                  _histStart != null && _histEnd != null
-                      ? '${DateFormat('dd MMM yyyy').format(_histStart!)} — ${DateFormat('dd MMM yyyy').format(_histEnd!)}'
-                      : 'Semua waktu',
-                  style: GoogleFonts.inter(fontSize: 12, color: c.textMuted))),
-                Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                  child: Text('${filtered.length} data • ${total.toStringAsFixed(1)} KG',
-                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primary))),
+            child: Container(
+              decoration: BoxDecoration(color: c.surfaceLight, borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.all(4),
+              child: Row(children: [
+                Expanded(child: GestureDetector(
+                  onTap: () => setState(() => _historyViewIndex = 0),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: _historyViewIndex == 0 ? AppColors.primary : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text('Histori Panen', style: GoogleFonts.inter(
+                        fontSize: 13, fontWeight: FontWeight.w600,
+                        color: _historyViewIndex == 0 ? Colors.white : c.textMuted)),
+                  ),
+                )),
+                Expanded(child: GestureDetector(
+                  onTap: () => setState(() => _historyViewIndex = 1),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: _historyViewIndex == 1 ? AppColors.primary : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text('Histori Rekapitulasi', style: GoogleFonts.inter(
+                        fontSize: 13, fontWeight: FontWeight.w600,
+                        color: _historyViewIndex == 1 ? Colors.white : c.textMuted)),
+                  ),
+                )),
               ]),
-            ]),
+            ),
           )),
         ),
-        Expanded(child: filtered.isEmpty
-            ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(Icons.inbox_rounded, size: 56, color: c.textMuted), const SizedBox(height: 12),
-                Text('Tidak ada data pada periode ini', style: GoogleFonts.inter(color: c.textMuted)),
-              ]))
-            : Center(child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1400),
-                child: isWide
-                    ? GridView.builder(
-                        padding: const EdgeInsets.all(16),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: constraints.maxWidth >= 1000 ? 2 : 1,
-                          mainAxisSpacing: 8, crossAxisSpacing: 12, mainAxisExtent: 80),
-                        itemCount: filtered.length,
-                        itemBuilder: (_, i) => _harvestCard(filtered[i], c))
-                    : ListView.builder(padding: const EdgeInsets.all(16), itemCount: filtered.length,
-                        itemBuilder: (_, i) => _harvestCard(filtered[i], c)),
-              ))),
+        // --- Tab Content ---
+        Expanded(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero).animate(animation),
+                child: child,
+              ),
+            ),
+            child: _historyViewIndex == 0 
+                ? KeyedSubtree(key: const ValueKey('panen'), child: _historyPanenView(isWide, c))
+                : KeyedSubtree(key: const ValueKey('rekap'), child: _historyRekapView(isWide, c)),
+          ),
+        ),
       ]);
     });
+  }
+
+  Widget _historyPanenView(bool isWide, DColors c) {
+    final filters = ['Semua', '7 Hari', '1 Bulan', '3 Bulan', '6 Bulan', '1 Tahun', 'Kustom'];
+    final filtered = _filteredHistory;
+    final total = filtered.fold(0.0, (s, h) => s + h.weightKg);
+
+    return Column(children: [
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(color: c.surface, border: Border(bottom: BorderSide(color: c.border))),
+        child: Center(child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1400),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(child: Text('Pilih Lahan', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted))),
+              Container(
+                height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: c.surfaceLight,
+                  border: Border.all(color: c.border),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _histLandFilter,
+                    icon: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: c.textMuted),
+                    style: GoogleFonts.inter(fontSize: 12, color: c.textPrimary, fontWeight: FontWeight.w600),
+                    dropdownColor: c.surface,
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text('Semua Lahan')),
+                      ..._lands.map((l) => DropdownMenuItem(value: l.id, child: Text(l.name))),
+                    ],
+                    onChanged: (val) => setState(() => _histLandFilter = val),
+                  ),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 12),
+            isWide
+                ? Wrap(spacing: 6, runSpacing: 6,
+                    children: filters.map((f) {
+                      final sel = _histFilter == f;
+                      return GestureDetector(
+                        onTap: () => _applyHistFilter(f),
+                        child: AnimatedContainer(duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                          decoration: BoxDecoration(
+                            gradient: sel ? AppColors.gradientPrimary : null,
+                            color: sel ? null : c.surfaceLight,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: sel ? Colors.transparent : c.border)),
+                          child: Text(f, style: GoogleFonts.inter(fontSize: 12,
+                              fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                              color: sel ? Colors.white : c.textMuted))));
+                    }).toList())
+                : SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(
+                    children: filters.map((f) {
+                      final sel = _histFilter == f;
+                      return Padding(padding: const EdgeInsets.only(right: 6), child: GestureDetector(
+                        onTap: () => _applyHistFilter(f),
+                        child: AnimatedContainer(duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                          decoration: BoxDecoration(
+                            gradient: sel ? AppColors.gradientPrimary : null,
+                            color: sel ? null : c.surfaceLight,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: sel ? Colors.transparent : c.border)),
+                          child: Text(f, style: GoogleFonts.inter(fontSize: 12,
+                              fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                              color: sel ? Colors.white : c.textMuted)))));
+                    }).toList())),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(child: Text(
+                _histStart != null && _histEnd != null
+                    ? '${DateFormat('dd MMM yyyy').format(_histStart!)} — ${DateFormat('dd MMM yyyy').format(_histEnd!)}'
+                    : 'Semua waktu',
+                style: GoogleFonts.inter(fontSize: 12, color: c.textMuted))),
+              Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                child: Text('${filtered.length} data • ${total.toStringAsFixed(1)} KG',
+                    style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primary))),
+            ]),
+          ]),
+        )),
+      ),
+      Expanded(child: filtered.isEmpty
+          ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.inbox_rounded, size: 56, color: c.textMuted), const SizedBox(height: 12),
+              Text('Tidak ada data pada periode ini', style: GoogleFonts.inter(color: c.textMuted)),
+            ]))
+          : Center(child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1400),
+              child: isWide
+                  ? GridView.builder(
+                      padding: const EdgeInsets.all(16),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: isWide ? 2 : 1, // Actually if constraints > 1000 then 2, maybe let's fix it simply
+                        mainAxisSpacing: 8, crossAxisSpacing: 12, mainAxisExtent: 80),
+                      itemCount: filtered.length,
+                      itemBuilder: (_, i) => _harvestCard(filtered[i], c))
+                  : ListView.builder(padding: const EdgeInsets.all(16), itemCount: filtered.length,
+                      itemBuilder: (_, i) => _harvestCard(filtered[i], c)),
+            ))),
+    ]);
+  }
+
+  Widget _historyRekapView(bool isWide, DColors c) {
+    // Generate available month-year combinations from stored finances
+    final availablePeriods = <String>{};
+    for (final f in _finances) {
+      availablePeriods.add('${f.periodMonth}-${f.periodYear}');
+    }
+    
+    // Sort available periods newest first
+    final sortedPeriods = availablePeriods.toList()..sort((a, b) {
+      final pA = a.split('-'); final pB = b.split('-');
+      if (pA[1] != pB[1]) return int.parse(pB[1]).compareTo(int.parse(pA[1]));
+      return int.parse(pB[0]).compareTo(int.parse(pA[0]));
+    });
+
+    // Apply Filter
+    var filteredFinances = List<LandFinanceModel>.from(_finances);
+    if (_rekapFilterMonth != null && _rekapFilterYear != null) {
+      filteredFinances = filteredFinances.where((f) => 
+          f.periodMonth == _rekapFilterMonth && f.periodYear == _rekapFilterYear).toList();
+    }
+
+    // Sort by most recent period
+    filteredFinances.sort((a, b) {
+      if (a.periodYear != b.periodYear) return b.periodYear.compareTo(a.periodYear);
+      return b.periodMonth.compareTo(a.periodMonth);
+    });
+
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+
+    return Column(children: [
+      // Filter row
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(color: c.surface, border: Border(bottom: BorderSide(color: c.border))),
+        child: Center(child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1400),
+          child: Row(children: [
+            Expanded(child: Text('Filter Periode Rekapitulasi', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted))),
+            Container(
+              height: 36,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: c.surfaceLight,
+                border: Border.all(color: c.border),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _rekapFilterMonth != null && _rekapFilterYear != null 
+                      ? '$_rekapFilterMonth-$_rekapFilterYear' 
+                      : 'Semua',
+                  icon: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: c.textMuted),
+                  style: GoogleFonts.inter(fontSize: 12, color: c.textPrimary, fontWeight: FontWeight.w600),
+                  dropdownColor: c.surface,
+                  items: [
+                    const DropdownMenuItem(value: 'Semua', child: Text('Semua Periode')),
+                    ...sortedPeriods.map((p) {
+                      final parts = p.split('-');
+                      final m = int.parse(parts[0]);
+                      final y = int.parse(parts[1]);
+                      return DropdownMenuItem(value: p, child: Text('${months[m-1]} $y'));
+                    }),
+                  ],
+                  onChanged: (val) {
+                    setState(() {
+                      if (val == null || val == 'Semua') {
+                        _rekapFilterMonth = null;
+                        _rekapFilterYear = null;
+                      } else {
+                        final parts = val.split('-');
+                        _rekapFilterMonth = int.parse(parts[0]);
+                        _rekapFilterYear = int.parse(parts[1]);
+                      }
+                    });
+                  },
+                ),
+              ),
+            ),
+          ]),
+        )),
+      ),
+
+      Expanded(child: filteredFinances.isEmpty
+          ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.receipt_long_rounded, size: 56, color: c.textMuted), const SizedBox(height: 12),
+              Text('Belum ada histori rekapitulasi pada periode ini', style: GoogleFonts.inter(color: c.textMuted)),
+            ]))
+          : Center(child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1400),
+              child: isWide
+                  ? GridView.builder(
+                      padding: const EdgeInsets.all(16),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, mainAxisExtent: 180),
+                      itemCount: filteredFinances.length,
+                      itemBuilder: (_, i) => _financeHistoryCard(filteredFinances[i], c))
+                  : ListView.builder(padding: const EdgeInsets.all(16), itemCount: filteredFinances.length,
+                      itemBuilder: (_, i) => Padding(padding: const EdgeInsets.only(bottom: 12), child: _financeHistoryCard(filteredFinances[i], c))),
+            ))),
+    ]);
+  }
+
+  Widget _financeHistoryCard(LandFinanceModel fin, DColors c) {
+    final land = _lands.firstWhere((l) => l.id == fin.landId, orElse: () => LandModel(id: '', name: 'Lahan Tidak Diketahui', stakeholderId: '', sizeHectares: 0, treeCount: 0));
+    final mH = _harvests.where((h) => h.landId == fin.landId && h.harvestDate.month == fin.periodMonth && h.harvestDate.year == fin.periodYear).toList();
+    final fmt = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
+    double totalTonnage = mH.fold(0.0, (s, h) => s + h.weightKg);
+    double grossRevenue = totalTonnage * fin.pricePerKg;
+    double totalCost = fin.fertilizerCost + fin.workerCost + (fin.pesticideYearlyCost / 12) + (fin.pruningYearlyCost / 12);
+    double margin = grossRevenue - totalCost;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: c.surface, borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: c.border),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: AppColors.violet.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            child: const Icon(Icons.request_quote_rounded, color: AppColors.violet, size: 16)),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(land.name, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13, color: c.textPrimary)),
+            Text('Bulan ${fin.periodMonth} / Tahun ${fin.periodYear}', style: GoogleFonts.inter(fontSize: 11, color: c.textMuted)),
+          ])),
+          // Actions
+          PopupMenuButton<String>(
+            icon: Icon(Icons.more_vert_rounded, size: 18, color: c.textMuted),
+            onSelected: (action) async {
+              if (action == 'pdf') {
+                await ExportService.exportFinanceToPDF(context, land, fin, mH);
+              } else if (action == 'excel') {
+                await ExportService.exportFinanceToExcel(land, fin, mH);
+              }
+            },
+            itemBuilder: (ctx) => [
+              PopupMenuItem(value: 'pdf', child: Row(children: [const Icon(Icons.picture_as_pdf_rounded, color: AppColors.rose, size: 16), const SizedBox(width: 8), Text('Export PDF', style: GoogleFonts.inter(fontSize: 12))])),
+              PopupMenuItem(value: 'excel', child: Row(children: [const Icon(Icons.table_chart_rounded, color: Colors.green, size: 16), const SizedBox(width: 8), Text('Export Excel', style: GoogleFonts.inter(fontSize: 12))])),
+            ],
+          ),
+        ]),
+        const Spacer(),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          _financeStatItem('Total Panen', '${totalTonnage.toStringAsFixed(1)} KG', c.textMuted, c),
+          _financeStatItem('Bruto', fmt.format(grossRevenue), c.textPrimary, c),
+        ]),
+        const SizedBox(height: 10),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          _financeStatItem('Pengeluaran', fmt.format(totalCost), AppColors.rose, c),
+          _financeStatItem('Margin Net', fmt.format(margin), margin >= 0 ? Colors.green : AppColors.rose, c, isBold: true),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _financeStatItem(String label, String value, Color valueColor, DColors c, {bool isBold = false}) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: GoogleFonts.inter(fontSize: 10, color: c.textMuted)),
+      const SizedBox(height: 2),
+      Text(value, style: GoogleFonts.inter(fontWeight: isBold ? FontWeight.w800 : FontWeight.w600, fontSize: 13, color: valueColor)),
+    ]);
   }
 
   void _applyHistFilter(String f) {
@@ -803,7 +1072,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
               Text('Tema Aplikasi', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: c.textPrimary)),
               Text(isDark ? 'Mode Gelap' : 'Mode Terang', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted)),
             ])),
-            Switch(value: isDark, activeColor: AppColors.primary,
+            Switch(value: isDark, activeThumbColor: AppColors.primary,
               onChanged: (_) => ref.read(themeModeProvider.notifier).toggle()),
           ]),
         ),
@@ -824,7 +1093,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
         color: c.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: c.border)),
       child: ListTile(
         leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(
-            color: (color ?? AppColors.primary).withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+            color: (color ?? AppColors.primary).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
           child: Icon(icon, size: 20, color: color ?? c.textSecondary)),
         title: Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14,
             color: color ?? c.textPrimary)),
@@ -876,10 +1145,10 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
     }).toList()));
 
   Widget _syncBanner(DColors c) => Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-    decoration: BoxDecoration(color: AppColors.amber.withOpacity(0.08), borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.amber.withOpacity(0.2))),
+    decoration: BoxDecoration(color: AppColors.amber.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.amber.withValues(alpha: 0.2))),
     child: Row(children: [
-      Icon(Icons.cloud_off_rounded, color: AppColors.amber, size: 16), const SizedBox(width: 10),
+      const Icon(Icons.cloud_off_rounded, color: AppColors.amber, size: 16), const SizedBox(width: 10),
       Expanded(child: Text('$_pendingCount data menunggu sync', style: GoogleFonts.inter(color: AppColors.amber, fontWeight: FontWeight.w500, fontSize: 13))),
       TextButton(onPressed: _isSyncing ? null : _syncData, child: Text('SYNC', style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppColors.amber))),
     ]));
@@ -919,7 +1188,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                 Icon(Icons.calendar_today_rounded, size: 11, color: c.textMuted), const SizedBox(width: 4),
                 Text(DateFormat('dd MMM yyyy').format(h.harvestDate), style: GoogleFonts.inter(fontSize: 11, color: c.textMuted)),
                 if (pending) ...[const SizedBox(width: 8), Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                  decoration: BoxDecoration(color: AppColors.amber.withOpacity(0.15), borderRadius: BorderRadius.circular(4)),
+                  decoration: BoxDecoration(color: AppColors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
                   child: Text('PENDING', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w700, color: AppColors.amber)))],
               ]),
             ])),
@@ -999,7 +1268,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
           dotData: FlDotData(show: e.length <= 30, getDotPainter: (_, __, ___, ____) =>
               FlDotCirclePainter(radius: 3, color: AppColors.primary, strokeWidth: 2, strokeColor: c.surface)),
           belowBarData: BarAreaData(show: true, gradient: LinearGradient(
-              colors: [AppColors.primary.withOpacity(0.15), AppColors.primary.withOpacity(0.0)],
+              colors: [AppColors.primary.withValues(alpha: 0.15), AppColors.primary.withValues(alpha: 0.0)],
               begin: Alignment.topCenter, end: Alignment.bottomCenter)),
         )],
       )));
@@ -1103,7 +1372,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
       ])));
   }
   Widget _expTile(BuildContext ctx, IconData i, String t, Color cl, VoidCallback onTap) => Material(
-    color: cl.withOpacity(0.08), borderRadius: BorderRadius.circular(12),
+    color: cl.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12),
     child: InkWell(borderRadius: BorderRadius.circular(12), onTap: onTap,
       child: Padding(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(children: [Icon(i, color: cl, size: 20), const SizedBox(width: 12),
@@ -1169,7 +1438,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                 color: c.surface, 
                 borderRadius: BorderRadius.circular(16), 
                 border: Border.all(color: isHovered ? AppColors.cyan : c.border, width: isHovered ? 1.5 : 1.0),
-                boxShadow: isHovered ? [BoxShadow(color: AppColors.cyan.withOpacity(0.2), blurRadius: 16, spreadRadius: 0, offset: const Offset(0, 0))] : [],
+                boxShadow: isHovered ? [BoxShadow(color: AppColors.cyan.withValues(alpha: 0.2), blurRadius: 16, spreadRadius: 0, offset: const Offset(0, 0))] : [],
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(15), // Clip children so they don't cover the border
@@ -1184,10 +1453,10 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                     : Image.network('https://images.unsplash.com/photo-1589308078052-9efaec11dbaf?q=80&w=800&auto=format&fit=crop', 
                 fit: BoxFit.cover, errorBuilder: (ctx, e, s) => Container(color: c.surface),
               )),
-              Positioned.fill(child: Container(color: Colors.black.withOpacity(0.2))),
+              Positioned.fill(child: Container(color: Colors.black.withValues(alpha: 0.2))),
               Positioned(top: 12, right: 12, child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: Colors.black.withOpacity(0.5), borderRadius: BorderRadius.circular(20)),
+                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(20)),
                 child: Row(children: [
                   const Icon(Icons.aspect_ratio_rounded, color: AppColors.cyan, size: 10),
                   const SizedBox(width: 4),
@@ -1199,7 +1468,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                 bottom: -20, left: 16,
                 child: Container(
                   width: 44, height: 44,
-                  decoration: BoxDecoration(color: AppColors.cyan.withOpacity(0.1), border: Border.all(color: AppColors.cyan, strokeAlign: BorderSide.strokeAlignOutside), borderRadius: BorderRadius.circular(10)),
+                  decoration: BoxDecoration(color: AppColors.cyan.withValues(alpha: 0.1), border: Border.all(color: AppColors.cyan, strokeAlign: BorderSide.strokeAlignOutside), borderRadius: BorderRadius.circular(10)),
                   child: const Icon(Icons.terrain_rounded, color: AppColors.cyan),
                 ),
               ),
@@ -1258,7 +1527,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Tutup Detail',
-      barrierColor: Colors.black.withOpacity(0.6),
+      barrierColor: Colors.black.withValues(alpha: 0.6),
       transitionDuration: const Duration(milliseconds: 350),
       pageBuilder: (ctx, anim1, anim2) => Dialog(
         backgroundColor: Colors.transparent,
@@ -1276,7 +1545,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                   Positioned.fill(child: land.imageUrl != null && land.imageUrl!.isNotEmpty 
                       ? Image.network(land.imageUrl!, fit: BoxFit.cover, errorBuilder: (ctx, e, s) => Container(color: c.surface))
                       : Image.network('https://images.unsplash.com/photo-1589308078052-9efaec11dbaf?q=80&w=800&auto=format&fit=crop', fit: BoxFit.cover, errorBuilder: (ctx, e, s) => Container(color: c.surface))),
-                  Positioned.fill(child: Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black.withOpacity(0.9)])))),
+                  Positioned.fill(child: Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black.withValues(alpha: 0.9)])))),
                   
                   // Action Buttons Cepat di Kanan Atas
                   Positioned(top: 16, right: 16, child: Row(children: [
@@ -1359,7 +1628,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
        onTap: onTap,
        child: Container(
          padding: const EdgeInsets.all(6),
-         decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle, border: Border.all(color: color.withOpacity(0.4))),
+         decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle, border: Border.all(color: color.withValues(alpha: 0.4))),
          child: Icon(icon, color: color, size: 16),
        ),
     );
@@ -1372,7 +1641,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          if (highlight) Positioned(right: -10, bottom: -20, child: Icon(Icons.scale_rounded, size: 80, color: Colors.white.withOpacity(0.03))),
+          if (highlight) Positioned(right: -10, bottom: -20, child: Icon(Icons.scale_rounded, size: 80, color: Colors.white.withValues(alpha: 0.03))),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Icon(icon, size: 12, color: c.textMuted), const SizedBox(width: 6),
@@ -1411,6 +1680,8 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
        return await pickedFile.readAsBytes();
     }
 
+    if (!mounted) return null;
+
     try {
       final croppedFile = await ImageCropper().cropImage(
         sourcePath: pickedFile.path,
@@ -1423,7 +1694,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
               initAspectRatio: CropAspectRatioPreset.ratio4x3,
               lockAspectRatio: true),
           IOSUiSettings(title: 'Potong Foto Lahan', aspectRatioLockEnabled: true),
-          WebUiSettings(context: context)
+          WebUiSettings(context: context),
         ],
       );
 
@@ -1470,7 +1741,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
               ),
               child: selectedImageBytes == null
                   ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Icon(Icons.add_a_photo_outlined, color: AppColors.cyan, size: 30),
+                      const Icon(Icons.add_a_photo_outlined, color: AppColors.cyan, size: 30),
                       const SizedBox(height: 8),
                       Text('Tambahkan Foto (4:3)', style: GoogleFonts.inter(color: context.dc.textMuted, fontSize: 12)),
                     ])
@@ -1485,7 +1756,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
           TextField(controller: treeCountController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Jumlah Batang', prefixIcon: Icon(Icons.nature_people))),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: selectedStakeholderId, decoration: const InputDecoration(labelText: 'Pemilik (Stakeholder)', prefixIcon: Icon(Icons.person)),
+            initialValue: selectedStakeholderId, decoration: const InputDecoration(labelText: 'Pemilik (Stakeholder)', prefixIcon: Icon(Icons.person)),
             items: _stakeholders.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name.isEmpty ? s.email : s.name))).toList(),
             onChanged: (val) => setDialogState(() => selectedStakeholderId = val),
           ),
@@ -1495,8 +1766,10 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
           Container(decoration: BoxDecoration(gradient: AppColors.gradientPrimary, borderRadius: BorderRadius.circular(10)),
             child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, elevation: 0),
               onPressed: isUploading ? null : () async {
+                final navigator = Navigator.of(ctx);
+                final messenger = ScaffoldMessenger.of(context);
                 if (nameController.text.isEmpty || sizeController.text.isEmpty || selectedStakeholderId == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Semua field wajib diisi (Foto opsional)'))); return;
+                  messenger.showSnackBar(const SnackBar(content: Text('Semua field wajib diisi (Foto opsional)'))); return;
                 }
                 setDialogState(() => isUploading = true);
                 try {
@@ -1517,12 +1790,13 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                   );
                   await LandRepository().addLand(finalLand);
                   
-                  if (mounted) Navigator.pop(ctx);
+                  if (!mounted) return;
+                  navigator.pop();
                   _loadData(); // Re-fetch
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lahan ditambahkan')));
+                  messenger.showSnackBar(const SnackBar(content: Text('Lahan ditambahkan')));
                 } catch (e) {
                   setDialogState(() => isUploading = false);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal menambahkan: $e')));
+                  if (mounted) messenger.showSnackBar(SnackBar(content: Text('Gagal menambahkan: $e')));
                 }
               }, child: isUploading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Simpan'))),
         ],
@@ -1566,7 +1840,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
               ),
               child: (selectedImageBytes == null && (removeExistingPhoto || land.imageUrl == null))
                   ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Icon(Icons.add_a_photo_outlined, color: AppColors.cyan, size: 30),
+                      const Icon(Icons.add_a_photo_outlined, color: AppColors.cyan, size: 30),
                       const SizedBox(height: 8),
                       Text('Ubah Foto (4:3)', style: GoogleFonts.inter(color: context.dc.textMuted, fontSize: 12)),
                     ])
@@ -1581,7 +1855,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
           TextField(controller: treeCountController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Jumlah Batang', prefixIcon: Icon(Icons.nature_people))),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: _stakeholders.any((s) => s.id == selectedStakeholderId) ? selectedStakeholderId : null,
+            initialValue: _stakeholders.any((s) => s.id == selectedStakeholderId) ? selectedStakeholderId : null,
             decoration: const InputDecoration(labelText: 'Pemilik (Stakeholder)', prefixIcon: Icon(Icons.person)),
             items: _stakeholders.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name.isEmpty ? s.email : s.name))).toList(),
             onChanged: (val) => setDialogState(() => selectedStakeholderId = val),
@@ -1592,8 +1866,10 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
           Container(decoration: BoxDecoration(gradient: AppColors.gradientPrimary, borderRadius: BorderRadius.circular(10)),
             child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, elevation: 0),
               onPressed: isUploading ? null : () async {
+                final navigator = Navigator.of(ctx);
+                final messenger = ScaffoldMessenger.of(context);
                 if (nameController.text.isEmpty || sizeController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nama dan luas wajib diisi'))); return;
+                  messenger.showSnackBar(const SnackBar(content: Text('Nama dan luas wajib diisi'))); return;
                 }
                 setDialogState(() => isUploading = true);
                 try {
@@ -1608,12 +1884,13 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                     sizeHectares: double.tryParse(sizeController.text), treeCount: int.tryParse(treeCountController.text), 
                     stakeholderId: selectedStakeholderId, imageUrl: uploadedUrl ?? land.imageUrl);
                     
-                  if (mounted) Navigator.pop(ctx);
+                  if (!mounted) return;
+                  navigator.pop();
                   _loadData();
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lahan diperbarui')));
+                  messenger.showSnackBar(const SnackBar(content: Text('Lahan diperbarui')));
                 } catch (e) {
                   setDialogState(() => isUploading = false);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal memperbarui: $e')));
+                  if (mounted) messenger.showSnackBar(SnackBar(content: Text('Gagal memperbarui: $e')));
                 }
               }, child: isUploading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Simpan'))),
         ],
@@ -1747,10 +2024,13 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                 decoration: const InputDecoration(labelText: 'Bulan', border: OutlineInputBorder()),
               )),
               const SizedBox(width: 10),
-              Expanded(child: TextFormField(
-                initialValue: selY.toString(),
-                keyboardType: TextInputType.number,
-                onChanged: (v) { final y = int.tryParse(v); if (y!=null && y>2000) { setDialogState(() { selY = y; loadForPeriod(); calc(); }); }},
+              Expanded(child: DropdownButtonFormField<int>(
+                value: selY,
+                items: List.generate(10, (i) {
+                  final y = DateTime.now().year - 5 + i;
+                  return DropdownMenuItem(value: y, child: Text('$y'));
+                }),
+                onChanged: (v) { setDialogState(() { selY = v!; loadForPeriod(); calc(); }); },
                 decoration: const InputDecoration(labelText: 'Tahun', border: OutlineInputBorder()),
               )),
             ])),
@@ -1769,7 +2049,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: AppColors.violet.withOpacity(0.05), borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.violet.withOpacity(0.2))),
+                  decoration: BoxDecoration(color: AppColors.violet.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.violet.withValues(alpha: 0.2))),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text('2. Kalkulasi Rincian Bulanan', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.violet)),
                     const SizedBox(height: 12),
@@ -1785,7 +2065,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.05), borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.primary.withOpacity(0.2))),
+                  decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.primary.withValues(alpha: 0.2))),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text('3. Ringkasan Margin Bulan Ini', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primary)),
                     const SizedBox(height: 4),
@@ -1804,6 +2084,8 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, elevation: 0),
                     onPressed: () async {
+                      final navigator = Navigator.of(ctx);
+                      final messenger = ScaffoldMessenger.of(context);
                       try {
                         final fin = LandFinanceModel(
                           id: currentId,
@@ -1817,11 +2099,12 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                           pruningYearlyCost: pruningYearly,
                         );
                         await LandRepository().upsertFinance(fin);
-                        if (mounted) Navigator.pop(ctx);
+                        if (!mounted) return;
+                        navigator.pop();
                         _loadData();
-                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Catatan pengeluaran disimpan!')));
+                        messenger.showSnackBar(const SnackBar(content: Text('Catatan pengeluaran disimpan!')));
                       } catch (e) {
-                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal menyimpan: $e')));
+                         if (mounted) messenger.showSnackBar(SnackBar(content: Text('Gagal menyimpan: $e')));
                       }
                     },
                     child: Text('Simpan Rekapan Finance', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14)),
@@ -1839,7 +2122,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                          final mH = _harvests.where((h) => h.landId == land.id && h.harvestDate.month == selM && h.harvestDate.year == selY).toList();
                          await ExportService.exportFinanceToPDF(context, land, fin, mH);
                        } catch (e) {
-                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal export PDF: $e')));
+                         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal export PDF: $e')));
                        }
                     },
                   )),
@@ -1854,7 +2137,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                          final mH = _harvests.where((h) => h.landId == land.id && h.harvestDate.month == selM && h.harvestDate.year == selY).toList();
                          await ExportService.exportFinanceToExcel(land, fin, mH);
                        } catch (e) {
-                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal export Excel: $e')));
+                         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal export Excel: $e')));
                        }
                     },
                   )),

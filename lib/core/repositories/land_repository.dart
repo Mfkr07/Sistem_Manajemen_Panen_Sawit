@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
@@ -131,7 +131,7 @@ class LandRepository {
         await LocalDatabase.instance.markFinanceAsSynced(fin.id);
         syncedCount++;
       } catch (e) {
-        print('Gagal sinkron data margin ${fin.id}: $e');
+        debugPrint('Gagal sinkron data margin ${fin.id}: $e');
       }
     }
     return syncedCount;

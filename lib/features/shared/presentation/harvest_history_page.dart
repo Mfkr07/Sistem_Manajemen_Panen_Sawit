@@ -104,7 +104,7 @@ class _HarvestHistoryPageState extends State<HarvestHistoryPage> {
               else
                 Expanded(child: Text('Semua waktu', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted))),
               Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
                 child: Text('${_filtered.length} data • ${totalWeight.toStringAsFixed(1)} KG',
                     style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primary))),
             ]),
@@ -141,7 +141,7 @@ class _HarvestHistoryPageState extends State<HarvestHistoryPage> {
                                   style: GoogleFonts.inter(fontSize: 11, color: c.textMuted)),
                               if (isPending) ...[const SizedBox(width: 8),
                                 Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                  decoration: BoxDecoration(color: AppColors.amber.withOpacity(0.15), borderRadius: BorderRadius.circular(4)),
+                                  decoration: BoxDecoration(color: AppColors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
                                   child: Text('PENDING', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w700, color: AppColors.amber)))],
                             ]),
                             Text('Upload: ${DateFormat('dd MMM yyyy HH:mm').format(h.createdAt)}',
@@ -154,8 +154,9 @@ class _HarvestHistoryPageState extends State<HarvestHistoryPage> {
                           if (widget.isAdmin) ...[const SizedBox(width: 8),
                             GestureDetector(
                               onTap: () async {
-                                final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => EditHarvestForm(harvest: h)));
-                                if (result == true && mounted) Navigator.pop(context, true);
+                                final nav = Navigator.of(context);
+                                final result = await nav.push(MaterialPageRoute(builder: (_) => EditHarvestForm(harvest: h)));
+                                if (result == true) nav.pop(true);
                               },
                               child: Container(padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(color: c.surfaceLight, borderRadius: BorderRadius.circular(8),

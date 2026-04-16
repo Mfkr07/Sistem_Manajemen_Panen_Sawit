@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -125,9 +124,9 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
             Container(
               width: 46, height: 46,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.5),
               ),
               child: Center(child: Text(_userInitials,
                   style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white))),
@@ -159,7 +158,7 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
                   decoration: BoxDecoration(
-                    color: active ? AppColors.violet.withOpacity(0.1) : null,
+                    color: active ? AppColors.violet.withValues(alpha: 0.1) : null,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(children: [
@@ -189,11 +188,11 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Container(
             decoration: BoxDecoration(
-              color: AppColors.rose.withOpacity(0.08),
+              color: AppColors.rose.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
             ),
             child: ListTile(
-              leading: Icon(Icons.logout_rounded, color: AppColors.rose, size: 22),
+              leading: const Icon(Icons.logout_rounded, color: AppColors.rose, size: 22),
               title: Text('Keluar', style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600, color: AppColors.rose, fontSize: 14)),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -352,27 +351,27 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
             // Stats — 4 cols on desktop, 3 on mobile
             if (isDesktop)
               Row(children: [
-                Expanded(child: _stat(Icons.scale_rounded, '${_monthTotal.toStringAsFixed(1)}', 'KG',
+                Expanded(child: _stat(Icons.scale_rounded, _monthTotal.toStringAsFixed(1), 'KG',
                     _selMonth == DateTime.now().month && _selYear == DateTime.now().year ? 'Bulan Ini' : _monthLabel,
                     AppColors.gradientPrimary, onTap: _showMonthPicker, chevron: true)),
                 const SizedBox(width: 12),
                 Expanded(child: _stat(Icons.terrain_rounded, '${_myLands.length}', null, 'Lahan', AppColors.gradientViolet)),
                 const SizedBox(width: 12),
-                Expanded(child: _stat(Icons.inventory_2_rounded, '${_totalAll.toStringAsFixed(0)}', 'KG', 'Total',
+                Expanded(child: _stat(Icons.inventory_2_rounded, _totalAll.toStringAsFixed(0), 'KG', 'Total',
                     const LinearGradient(colors: [AppColors.cyan, Color(0xFF38BDF8)]))),
                 const SizedBox(width: 12),
-                Expanded(child: _stat(Icons.trending_up_rounded, '${avgMonth.toStringAsFixed(1)}', 'KG', 'Rata-rata/Bulan',
+                Expanded(child: _stat(Icons.trending_up_rounded, avgMonth.toStringAsFixed(1), 'KG', 'Rata-rata/Bulan',
                     const LinearGradient(colors: [AppColors.amber, Color(0xFFFBBF24)]))),
               ])
             else
               Row(children: [
-                Expanded(child: _stat(Icons.scale_rounded, '${_monthTotal.toStringAsFixed(1)}', 'KG',
+                Expanded(child: _stat(Icons.scale_rounded, _monthTotal.toStringAsFixed(1), 'KG',
                     _selMonth == DateTime.now().month && _selYear == DateTime.now().year ? 'Bulan Ini' : _monthLabel,
                     AppColors.gradientPrimary, onTap: _showMonthPicker, chevron: true)),
                 const SizedBox(width: 10),
                 Expanded(child: _stat(Icons.terrain_rounded, '${_myLands.length}', null, 'Lahan', AppColors.gradientViolet)),
                 const SizedBox(width: 10),
-                Expanded(child: _stat(Icons.inventory_2_rounded, '${_totalAll.toStringAsFixed(0)}', 'KG', 'Total',
+                Expanded(child: _stat(Icons.inventory_2_rounded, _totalAll.toStringAsFixed(0), 'KG', 'Total',
                     const LinearGradient(colors: [AppColors.cyan, Color(0xFF38BDF8)]))),
               ]),
             const SizedBox(height: 24),
@@ -496,7 +495,7 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
                     ? '${DateFormat('dd MMM yyyy').format(_histStart!)} — ${DateFormat('dd MMM yyyy').format(_histEnd!)}'
                     : 'Semua waktu', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted))),
                 Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                  decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
                   child: Text('${fil.length} data • ${tot.toStringAsFixed(1)} KG',
                       style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primary))),
               ]),
@@ -631,7 +630,7 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
               Text('Tema Aplikasi', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: c.textPrimary)),
               Text(isDark ? 'Mode Gelap' : 'Mode Terang', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted)),
             ])),
-            Switch(value: isDark, activeColor: AppColors.primary,
+            Switch(value: isDark, activeThumbColor: AppColors.primary,
               onChanged: (_) => ref.read(themeModeProvider.notifier).toggle()),
           ])),
         const SizedBox(height: 12),
@@ -649,7 +648,7 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
         border: Border.all(color: c.border)),
       child: ListTile(
         leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(
-            color: (color ?? AppColors.primary).withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+            color: (color ?? AppColors.primary).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
           child: Icon(icon, size: 20, color: color ?? c.textSecondary)),
         title: Text(t, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: color ?? c.textPrimary)),
         trailing: Icon(Icons.chevron_right_rounded, color: c.textMuted),
@@ -692,13 +691,13 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
     final ci = _myLands.indexOf(l) % cls.length;
     return SizedBox(width: 170, child: Container(padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [cls[ci][0].withOpacity(0.15), cls[ci][1].withOpacity(0.05)],
+        gradient: LinearGradient(colors: [cls[ci][0].withValues(alpha: 0.15), cls[ci][1].withValues(alpha: 0.05)],
             begin: Alignment.topLeft, end: Alignment.bottomRight),
-        borderRadius: BorderRadius.circular(16), border: Border.all(color: cls[ci][0].withOpacity(0.25))),
+        borderRadius: BorderRadius.circular(16), border: Border.all(color: cls[ci][0].withValues(alpha: 0.25))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(
-              color: cls[ci][0].withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
+              color: cls[ci][0].withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
             child: Icon(Icons.terrain_rounded, size: 14, color: cls[ci][1])),
           const SizedBox(width: 8),
           Expanded(child: Text(l.name, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13, color: c.textPrimary),
@@ -730,9 +729,9 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
       Text(t, style: GoogleFonts.inter(color: c.textMuted, fontSize: 14))]));
 
   Widget _infoBanner(String t, DColors c) => Container(padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(color: AppColors.amber.withOpacity(0.08), borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.amber.withOpacity(0.2))),
-    child: Row(children: [Icon(Icons.info_outline_rounded, color: AppColors.amber, size: 16),
+    decoration: BoxDecoration(color: AppColors.amber.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.amber.withValues(alpha: 0.2))),
+    child: Row(children: [const Icon(Icons.info_outline_rounded, color: AppColors.amber, size: 16),
       const SizedBox(width: 10), Expanded(child: Text(t, style: GoogleFonts.inter(color: AppColors.amber, fontSize: 13)))]));
 
   Widget _exportBtn(DColors c) => Container(width: double.infinity,
@@ -824,7 +823,7 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
           dotData: FlDotData(show: e.length <= 30, getDotPainter: (_, __, ___, ____) =>
               FlDotCirclePainter(radius: 3, color: AppColors.primary, strokeWidth: 2, strokeColor: c.surface)),
           belowBarData: BarAreaData(show: true, gradient: LinearGradient(
-              colors: [AppColors.primary.withOpacity(0.15), AppColors.primary.withOpacity(0.0)],
+              colors: [AppColors.primary.withValues(alpha: 0.15), AppColors.primary.withValues(alpha: 0.0)],
               begin: Alignment.topCenter, end: Alignment.bottomCenter)))])));
   }
 
@@ -875,7 +874,7 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
       ])));
   }
   Widget _eTile(BuildContext ctx, IconData i, String t, Color cl, VoidCallback onTap) => Material(
-    color: cl.withOpacity(0.08), borderRadius: BorderRadius.circular(12),
+    color: cl.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12),
     child: InkWell(borderRadius: BorderRadius.circular(12), onTap: onTap,
       child: Padding(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(children: [Icon(i, color: cl, size: 20), const SizedBox(width: 12),

@@ -69,7 +69,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
             decoration: BoxDecoration(
               gradient: AppColors.gradientPrimary,
               shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 24, offset: const Offset(0, 8))],
+              boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.3), blurRadius: 24, offset: const Offset(0, 8))],
             ),
             child: const Icon(Icons.eco_rounded, size: 44, color: Colors.white),
           ),
@@ -87,7 +87,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
               color: c.surface,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: c.border),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.2 : 0.06), blurRadius: 32, offset: const Offset(0, 16))],
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06), blurRadius: 32, offset: const Offset(0, 16))],
             ),
             child: Form(
                 key: _formKey,
@@ -96,9 +96,9 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                     Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                            color: AppColors.rose.withOpacity(0.1),
+                            color: AppColors.rose.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.rose.withOpacity(0.25))),
+                            border: Border.all(color: AppColors.rose.withValues(alpha: 0.25))),
                         child: Row(children: [
                           const Icon(Icons.error_outline_rounded, color: AppColors.rose, size: 18),
                           const SizedBox(width: 8),
@@ -157,7 +157,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                       decoration: BoxDecoration(
                           gradient: AppColors.gradientPrimary,
                           borderRadius: BorderRadius.circular(12),
-                          boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))]),
+                          boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4))]),
                       child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.transparent, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
@@ -220,9 +220,9 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                     Container(
                                       padding: const EdgeInsets.all(28),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.15),
+                                        color: Colors.white.withValues(alpha: 0.15),
                                         shape: BoxShape.circle,
-                                        border: Border.all(color: Colors.white.withOpacity(0.2), width: 2),
+                                        border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 2),
                                       ),
                                       child: const Icon(Icons.eco_rounded, size: 64, color: Colors.white),
                                     ),
@@ -235,7 +235,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                     const SizedBox(height: 16),
                                     Text(
                                       'Kelola panen sawit dengan efisien dan\nterpusat dalam satu platform cerdas.',
-                                      style: GoogleFonts.inter(fontSize: 17, color: Colors.white.withOpacity(0.9), height: 1.6),
+                                      style: GoogleFonts.inter(fontSize: 17, color: Colors.white.withValues(alpha: 0.9), height: 1.6),
                                       textAlign: TextAlign.center,
                                     ),
                                     const SizedBox(height: 48),
@@ -260,7 +260,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                         Positioned(
                           bottom: 24, left: 0, right: 0,
                           child: Center(
-                            child: Text('Palm Harvest v1.0', style: GoogleFonts.inter(fontSize: 12, color: Colors.white.withOpacity(0.5))),
+                            child: Text('Palm Harvest v1.0', style: GoogleFonts.inter(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
                           ),
                         ),
                       ],
@@ -318,7 +318,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     width: size, height: size,
     decoration: BoxDecoration(
       shape: BoxShape.circle,
-      color: Colors.white.withOpacity(opacity),
+      color: Colors.white.withValues(alpha: opacity),
     ),
   );
 
@@ -326,15 +326,15 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   Widget _featureChip(IconData icon, String label) => Container(
     width: 110, padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
     decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.12),
+      color: Colors.white.withValues(alpha: 0.12),
       borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: Colors.white.withOpacity(0.15)),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
     ),
     child: Column(mainAxisSize: MainAxisSize.min, children: [
       Icon(icon, color: Colors.white, size: 28),
       const SizedBox(height: 10),
       Text(label, textAlign: TextAlign.center,
-          style: GoogleFonts.inter(color: Colors.white.withOpacity(0.95), fontSize: 12, fontWeight: FontWeight.w600, height: 1.3)),
+          style: GoogleFonts.inter(color: Colors.white.withValues(alpha: 0.95), fontSize: 12, fontWeight: FontWeight.w600, height: 1.3)),
     ]),
   );
 }

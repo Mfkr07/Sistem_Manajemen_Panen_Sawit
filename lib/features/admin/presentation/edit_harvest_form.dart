@@ -59,6 +59,7 @@ class _EditHarvestFormState extends State<EditHarvestForm> {
       lastDate: DateTime.now(),
     );
     if (picked != null) {
+      if (!mounted) return;
       final time = await showTimePicker(
         context: context,
         initialTime: TimeOfDay.fromDateTime(_selectedDate),
@@ -108,9 +109,11 @@ class _EditHarvestFormState extends State<EditHarvestForm> {
         Navigator.pop(context, true);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal memperbarui: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal memperbarui: $e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -151,16 +154,16 @@ class _EditHarvestFormState extends State<EditHarvestForm> {
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: AppColors.cyan.withOpacity(0.08),
+                          color: AppColors.cyan.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppColors.cyan.withOpacity(0.2)),
+                          border: Border.all(color: AppColors.cyan.withValues(alpha: 0.2)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               children: [
-                                Icon(Icons.edit_note_rounded, color: AppColors.cyan, size: 18),
+                                const Icon(Icons.edit_note_rounded, color: AppColors.cyan, size: 18),
                                 const SizedBox(width: 8),
                                 Text('Mengedit Data Panen',
                                     style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppColors.cyan, fontSize: 14)),
@@ -186,7 +189,7 @@ class _EditHarvestFormState extends State<EditHarvestForm> {
                       _isLoadingLands
                           ? const LinearProgressIndicator()
                           : DropdownButtonFormField<String>(
-                              value: _lands.any((l) => l.id == _selectedLandId) ? _selectedLandId : null,
+                              initialValue: _lands.any((l) => l.id == _selectedLandId) ? _selectedLandId : null,
                               decoration: const InputDecoration(
                                 prefixIcon: Icon(Icons.terrain),
                                 hintText: 'Pilih lahan...',
@@ -242,7 +245,7 @@ class _EditHarvestFormState extends State<EditHarvestForm> {
                         decoration: BoxDecoration(
                           gradient: AppColors.gradientPrimary,
                           borderRadius: BorderRadius.circular(12),
-                          boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))],
+                          boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4))],
                         ),
                         child: ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
