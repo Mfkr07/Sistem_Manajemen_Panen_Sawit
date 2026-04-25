@@ -68,6 +68,7 @@ class _HarvestHistoryPageState extends State<HarvestHistoryPage> {
   Widget build(BuildContext context) {
     final c = context.dc;
     final totalWeight = _filtered.fold(0.0, (sum, h) => sum + h.weightKg);
+    final totalBunches = _filtered.fold(0, (sum, h) => sum + h.bunchCount);
 
     return Scaffold(
       appBar: AppBar(title: Text('Histori Panen', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 18))),
@@ -105,7 +106,7 @@ class _HarvestHistoryPageState extends State<HarvestHistoryPage> {
                 Expanded(child: Text('Semua waktu', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted))),
               Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                child: Text('${_filtered.length} data • ${totalWeight.toStringAsFixed(1)} KG',
+                child: Text('${_filtered.length} data • ${totalWeight.toStringAsFixed(1)} KG • ${totalBunches > 0 ? '$totalBunches tandan' : ''}',
                     style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primary))),
             ]),
           ]),
@@ -150,6 +151,8 @@ class _HarvestHistoryPageState extends State<HarvestHistoryPage> {
                           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                             Text('${h.weightKg}', style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 18, color: c.textPrimary)),
                             Text('KG', style: GoogleFonts.inter(fontSize: 10, color: c.textMuted, fontWeight: FontWeight.w600)),
+                            if (h.bunchCount > 0)
+                              Text('${h.bunchCount} tandan', style: GoogleFonts.inter(fontSize: 9, color: AppColors.cyan, fontWeight: FontWeight.w600)),
                           ]),
                           if (widget.isAdmin) ...[const SizedBox(width: 8),
                             GestureDetector(
@@ -178,6 +181,10 @@ class _HarvestHistoryPageState extends State<HarvestHistoryPage> {
         Text('Detail Panen', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: c.textPrimary)),
         const SizedBox(height: 16), const Divider(), const SizedBox(height: 8),
         _detailRow('Lahan', landName), _detailRow('Berat', '${h.weightKg} KG'),
+        if (h.bunchCount > 0) ...[
+          _detailRow('Jumlah Tandan', '${h.bunchCount} Tandan'),
+          _detailRow('Rata-rata/Tandan', '${h.avgWeightPerBunch.toStringAsFixed(2)} KG'),
+        ],
         _detailRow('Tanggal Panen', DateFormat('dd MMMM yyyy, HH:mm').format(h.harvestDate)),
         _detailRow('Upload', DateFormat('dd MMMM yyyy, HH:mm').format(h.createdAt)),
         _detailRow('Terakhir Edit', DateFormat('dd MMMM yyyy, HH:mm').format(h.updatedAt)),

@@ -238,7 +238,7 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
               : null,
           title: _tabIndex == 0
               ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Halo, ${_name.isEmpty ? 'Stakeholder' : _name} \uD83D\uDC4B',
+                  Text('Halo, ${_name.isEmpty ? 'Stakeholder' : _name}',
                       style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: c.textPrimary)),
                   Text('Lihat performa lahan Anda', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted)),
                 ])
@@ -512,7 +512,7 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
                         padding: const EdgeInsets.all(16),
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: constraints.maxWidth >= 1000 ? 2 : 1,
-                          mainAxisSpacing: 8, crossAxisSpacing: 12, mainAxisExtent: 76),
+                          mainAxisSpacing: 8, crossAxisSpacing: 12, mainAxisExtent: 96),
                         itemCount: fil.length,
                         itemBuilder: (_, i) => _hCard(fil[i], c))
                     : ListView.builder(padding: const EdgeInsets.all(16), itemCount: fil.length,
@@ -551,27 +551,6 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
   // ═══════════════════════════════════════════════════
   Widget _landsTab() {
     final c = context.dc;
-    Widget landItem(LandModel l) {
-      final tot = _harvests.where((h) => h.landId == l.id).fold(0.0, (s, h) => s + h.weightKg);
-      return Container(padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: c.border)),
-        child: Row(children: [
-          Container(width: 4, height: 40, decoration: BoxDecoration(
-              color: AppColors.primary, borderRadius: BorderRadius.circular(2))),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(l.name, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: c.textPrimary)),
-            const SizedBox(height: 4),
-            Text('${l.sizeHectares} Ha', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted)),
-          ])),
-          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text(tot.toStringAsFixed(1), style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: c.textPrimary)),
-            Text('KG', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: c.textMuted)),
-          ]),
-        ]));
-    }
-
     return LayoutBuilder(builder: (context, constraints) {
       final isWide = constraints.maxWidth >= 700;
       return _myLands.isEmpty
@@ -580,19 +559,234 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
               Text('Belum ada lahan', style: GoogleFonts.inter(color: c.textMuted))]))
           : Center(child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 1400),
-              child: isWide
-                  ? GridView.builder(
-                      padding: const EdgeInsets.all(16),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: constraints.maxWidth >= 1000 ? 3 : 2,
-                        mainAxisSpacing: 10, crossAxisSpacing: 12, mainAxisExtent: 78),
-                      itemCount: _myLands.length,
-                      itemBuilder: (_, i) => landItem(_myLands[i]))
-                  : ListView.builder(padding: const EdgeInsets.all(16), itemCount: _myLands.length,
-                      itemBuilder: (_, i) => Padding(padding: const EdgeInsets.only(bottom: 8), child: landItem(_myLands[i]))),
+              child: Column(children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Row(children: [
+                    Expanded(child: Text('${_myLands.length} lahan terdaftar', style: GoogleFonts.inter(color: c.textMuted, fontSize: 13))),
+                  ]),
+                ),
+                Expanded(child: GridView.builder(
+                  padding: const EdgeInsets.all(16),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: isWide ? (constraints.maxWidth >= 1000 ? 3 : 2) : 1,
+                    mainAxisSpacing: 12, crossAxisSpacing: 12, mainAxisExtent: isWide ? 280 : 260),
+                  itemCount: _myLands.length,
+                  itemBuilder: (_, i) => _buildStakeholderLandCard(_myLands[i], c),
+                )),
+              ]),
             ));
     });
   }
+
+  Widget _buildStakeholderLandCard(LandModel land, DColors c) {
+    final total = _harvests.where((h) => h.landId == land.id).fold(0.0, (s, h) => s + h.weightKg);
+    bool isHovered = false;
+
+    return StatefulBuilder(
+      builder: (ctx, ss) => MouseRegion(
+        onEnter: (_) => ss(() => isHovered = true),
+        onExit: (_) => ss(() => isHovered = false),
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: () => _showStakeholderLandDetail(land, total, c),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOutCubic,
+            decoration: BoxDecoration(
+              color: c.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: isHovered ? AppColors.violet : c.border, width: isHovered ? 1.5 : 1.0),
+              boxShadow: isHovered ? [BoxShadow(color: AppColors.violet.withValues(alpha: 0.2), blurRadius: 16, spreadRadius: 0)] : [],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(15),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                // Image Header
+                SizedBox(
+                  height: 120,
+                  child: Stack(clipBehavior: Clip.none, children: [
+                    Positioned.fill(
+                      child: land.imageUrl != null && land.imageUrl!.isNotEmpty
+                          ? Image.network(land.imageUrl!, fit: BoxFit.cover, errorBuilder: (ctx, e, s) => Container(color: c.surface))
+                          : Image.network('https://images.unsplash.com/photo-1589308078052-9efaec11dbaf?q=80&w=800&auto=format&fit=crop',
+                              fit: BoxFit.cover, errorBuilder: (ctx, e, s) => Container(color: c.surface)),
+                    ),
+                    Positioned.fill(child: Container(color: Colors.black.withValues(alpha: 0.2))),
+                    Positioned(top: 12, right: 12, child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(20)),
+                      child: Row(children: [
+                        const Icon(Icons.aspect_ratio_rounded, color: AppColors.violet, size: 10),
+                        const SizedBox(width: 4),
+                        Text('${land.sizeHectares} Hektar', style: GoogleFonts.inter(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+                      ]),
+                    )),
+                    Positioned(
+                      bottom: -20, left: 16,
+                      child: Container(
+                        width: 44, height: 44,
+                        decoration: BoxDecoration(color: AppColors.violet.withValues(alpha: 0.1), border: Border.all(color: AppColors.violet, strokeAlign: BorderSide.strokeAlignOutside), borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.terrain_rounded, color: AppColors.violet),
+                      ),
+                    ),
+                  ]),
+                ),
+                const SizedBox(height: 28),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(land.name, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white)),
+                    const SizedBox(height: 4),
+                    Text('${land.treeCount} Batang', style: GoogleFonts.inter(fontSize: 10, color: c.textMuted), overflow: TextOverflow.ellipsis),
+                  ]),
+                ),
+                const Spacer(),
+                Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Divider(height: 1, color: c.border)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    Text('TOTAL PANEN', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w700, color: c.textMuted)),
+                    Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
+                      Text(total.toStringAsFixed(1), style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.white)),
+                      const SizedBox(width: 4),
+                      Text('KG', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.violet)),
+                    ]),
+                  ]),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showStakeholderLandDetail(LandModel land, double total, DColors c) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Tutup Detail',
+      barrierColor: Colors.black.withValues(alpha: 0.6),
+      transitionDuration: const Duration(milliseconds: 350),
+      pageBuilder: (ctx, anim1, anim2) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Container(
+          width: 800,
+          decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: c.border)),
+          clipBehavior: Clip.antiAlias,
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // Header Image
+              SizedBox(
+                height: 300,
+                child: Stack(children: [
+                  Positioned.fill(child: land.imageUrl != null && land.imageUrl!.isNotEmpty
+                      ? Image.network(land.imageUrl!, fit: BoxFit.cover, errorBuilder: (ctx, e, s) => Container(color: c.surface))
+                      : Image.network('https://images.unsplash.com/photo-1589308078052-9efaec11dbaf?q=80&w=800&auto=format&fit=crop', fit: BoxFit.cover, errorBuilder: (ctx, e, s) => Container(color: c.surface))),
+                  Positioned.fill(child: Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black.withValues(alpha: 0.9)])))),
+                  Positioned(top: 16, right: 16, child: GestureDetector(
+                    onTap: () => Navigator.pop(ctx),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), shape: BoxShape.circle, border: Border.all(color: Colors.white.withValues(alpha: 0.4))),
+                      child: const Icon(Icons.close_rounded, color: Colors.white, size: 16),
+                    ),
+                  )),
+                  Positioned(bottom: 20, left: 24, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(land.name, style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white)),
+                    const SizedBox(height: 6),
+                    Row(children: [
+                      const Icon(Icons.location_on_outlined, color: AppColors.violet, size: 14),
+                      const SizedBox(width: 6),
+                      Text('Lihat di Peta (Batas Wilayah)', style: GoogleFonts.inter(color: AppColors.violet, fontSize: 12, fontWeight: FontWeight.w600)),
+                    ]),
+                  ])),
+                ]),
+              ),
+
+              // 3 Detail Cards
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Row(children: [
+                  Expanded(child: _sDetailCard('LUAS LAHAN', Icons.map_outlined, '${land.sizeHectares}', 'Ha', c)),
+                  const SizedBox(width: 16),
+                  Expanded(child: _sDetailCard('JUMLAH POHON', Icons.nature_outlined, '${land.treeCount}', 'Batang', c)),
+                  const SizedBox(width: 16),
+                  Expanded(child: _sDetailCard('TOTAL PANEN', Icons.scale_outlined, total.toStringAsFixed(1), 'KG', c, highlight: true)),
+                ]),
+              ),
+
+              // Full Photo
+              if (land.imageUrl != null && land.imageUrl!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  child: Center(
+                    child: FractionallySizedBox(
+                      widthFactor: 0.5,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('FOTO LAHAN', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: c.textMuted)),
+                          const SizedBox(height: 12),
+                          Container(
+                            decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: c.border)),
+                            clipBehavior: Clip.antiAlias,
+                            child: Image.network(land.imageUrl!, fit: BoxFit.contain,
+                              errorBuilder: (ctx, e, s) => Container(height: 200, color: c.surfaceLight,
+                                child: const Center(child: Icon(Icons.broken_image_rounded, size: 40, color: Colors.grey)))),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Footer
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                  TextButton(onPressed: () => Navigator.pop(ctx), style: TextButton.styleFrom(foregroundColor: Colors.white), child: Text('Tutup', style: GoogleFonts.inter(fontWeight: FontWeight.w600))),
+                ]),
+              ),
+            ]),
+          ),
+        ),
+      ),
+      transitionBuilder: (context, anim1, anim2, child) {
+        return ScaleTransition(
+          scale: CurvedAnimation(parent: anim1, curve: Curves.easeOutBack),
+          child: FadeTransition(opacity: anim1, child: child),
+        );
+      },
+    );
+  }
+
+  Widget _sDetailCard(String title, IconData icon, String val, String unit, DColors c, {bool highlight = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      decoration: BoxDecoration(color: c.surfaceLight, borderRadius: BorderRadius.circular(12), border: Border.all(color: c.border)),
+      child: Stack(clipBehavior: Clip.none, children: [
+        if (highlight) Positioned(right: -10, bottom: -20, child: Icon(Icons.scale_rounded, size: 80, color: Colors.white.withValues(alpha: 0.03))),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(icon, size: 12, color: c.textMuted), const SizedBox(width: 6),
+            Text(title, style: GoogleFonts.inter(color: c.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
+          ]),
+          const SizedBox(height: 12),
+          Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
+            Flexible(child: Text(val, style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800), overflow: TextOverflow.ellipsis)),
+            if (unit.isNotEmpty) ...[
+              const SizedBox(width: 4),
+              Text(unit, style: GoogleFonts.inter(color: highlight ? AppColors.violet : c.textSecondary, fontSize: 11, fontWeight: FontWeight.w600)),
+            ]
+          ]),
+        ]),
+      ]),
+    );
+  }
+
 
   // ═══════════════════════════════════════════════════
   // TAB 3 – PROFILE
@@ -761,6 +955,8 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
         Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
           Text('${h.weightKg}', style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 18, color: c.textPrimary)),
           Text('KG', style: GoogleFonts.inter(fontSize: 10, color: c.textMuted, fontWeight: FontWeight.w600)),
+          if (h.bunchCount > 0)
+            Text('${h.bunchCount} tandan', style: GoogleFonts.inter(fontSize: 9, color: AppColors.cyan, fontWeight: FontWeight.w600)),
         ]),
       ]));
   }

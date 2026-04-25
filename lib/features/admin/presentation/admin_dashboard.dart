@@ -809,7 +809,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                       padding: const EdgeInsets.all(16),
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: isWide ? 2 : 1, // Actually if constraints > 1000 then 2, maybe let's fix it simply
-                        mainAxisSpacing: 8, crossAxisSpacing: 12, mainAxisExtent: 80),
+                        mainAxisSpacing: 8, crossAxisSpacing: 12, mainAxisExtent: 96),
                       itemCount: filtered.length,
                       itemBuilder: (_, i) => _harvestCard(filtered[i], c))
                   : ListView.builder(padding: const EdgeInsets.all(16), itemCount: filtered.length,
@@ -1195,6 +1195,8 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Text('${h.weightKg}', style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 18, color: c.textPrimary)),
               Text('KG', style: GoogleFonts.inter(fontSize: 10, color: c.textMuted, fontWeight: FontWeight.w600)),
+              if (h.bunchCount > 0)
+                Text('${h.bunchCount} tandan', style: GoogleFonts.inter(fontSize: 9, color: AppColors.cyan, fontWeight: FontWeight.w600)),
             ]),
             const SizedBox(width: 8),
             GestureDetector(onTap: () async {
@@ -1344,6 +1346,10 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
         Text('Detail Panen', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: c.textPrimary)),
         const Divider(height: 24),
         _dr('Lahan', name), _dr('Berat', '${h.weightKg} KG'),
+        if (h.bunchCount > 0) ...[
+          _dr('Jumlah Tandan', '${h.bunchCount} Tandan'),
+          _dr('Rata-rata/Tandan', '${h.avgWeightPerBunch.toStringAsFixed(2)} KG'),
+        ],
         _dr('Tanggal', DateFormat('dd MMMM yyyy, HH:mm').format(h.harvestDate)),
         _dr('Upload', DateFormat('dd MMMM yyyy, HH:mm').format(h.createdAt)),
         _dr('Status', h.syncStatus == 'pending' ? '⏳ Menunggu' : '✅ Tersinkron'),
@@ -1588,6 +1594,39 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                   ]),
                 ]),
               ),
+              
+              // Foto Lahan (Versi Penuh)
+              if (land.imageUrl != null && land.imageUrl!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  child: Center(
+                    child: FractionallySizedBox(
+                      widthFactor: 0.5,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('FOTO LAHAN', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: c.textMuted)),
+                          const SizedBox(height: 12),
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: c.border),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: Image.network(
+                              land.imageUrl!,
+                              fit: BoxFit.contain,
+                              errorBuilder: (ctx, e, s) => Container(
+                                height: 200, color: c.surfaceLight,
+                                child: const Center(child: Icon(Icons.broken_image_rounded, size: 40, color: Colors.grey)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               
               // Bottom Footer Actions
               Padding(

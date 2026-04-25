@@ -44,10 +44,13 @@ CREATE TABLE IF NOT EXISTS harvests (
   id UUID PRIMARY KEY,
   land_id UUID REFERENCES lands(id) ON DELETE CASCADE,
   weight_kg NUMERIC NOT NULL DEFAULT 0,
+  bunch_count INTEGER NOT NULL DEFAULT 0,
   harvest_date TIMESTAMP WITH TIME ZONE NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+-- Tambahkan kolom bunch_count jika tabel sudah ada
+ALTER TABLE harvests ADD COLUMN IF NOT EXISTS bunch_count INTEGER NOT NULL DEFAULT 0;
 
 -- 4. Tabel Land Finances (Buku Rekap Pengeluaran & Harga Bulanan)
 CREATE TABLE IF NOT EXISTS land_finances (

@@ -76,16 +76,21 @@ class HarvestModel {
   final String landId;
   final String? landName; // For display purposes only (joined from lands table or cache)
   final double weightKg;
+  final int bunchCount; // Jumlah tandan
   final DateTime harvestDate;
   final DateTime createdAt;
   final DateTime updatedAt;
   final String syncStatus; // 'synced' or 'pending' — local only, never sent to server
+
+  /// Berat rata-rata per tandan (KG)
+  double get avgWeightPerBunch => bunchCount > 0 ? weightKg / bunchCount : 0;
 
   HarvestModel({
     String? id,
     required this.landId,
     this.landName,
     required this.weightKg,
+    this.bunchCount = 0,
     required this.harvestDate,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -100,6 +105,7 @@ class HarvestModel {
       landId: json['land_id'] ?? '',
       landName: json['land_name'] ?? json['lands']?['name'],
       weightKg: double.parse(json['weight_kg'].toString()),
+      bunchCount: int.tryParse((json['bunch_count'] ?? 0).toString()) ?? 0,
       harvestDate: DateTime.parse(json['harvest_date']),
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
@@ -113,6 +119,7 @@ class HarvestModel {
     'land_id': landId,
     'land_name': landName,
     'weight_kg': weightKg,
+    'bunch_count': bunchCount,
     'harvest_date': harvestDate.toIso8601String(),
     'created_at': createdAt.toIso8601String(),
     'updated_at': updatedAt.toIso8601String(),
@@ -125,6 +132,7 @@ class HarvestModel {
       'id': id,
       'land_id': landId,
       'weight_kg': weightKg,
+      'bunch_count': bunchCount,
       'harvest_date': harvestDate.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
@@ -136,6 +144,7 @@ class HarvestModel {
     String? landId,
     String? landName,
     double? weightKg,
+    int? bunchCount,
     DateTime? harvestDate,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -146,6 +155,7 @@ class HarvestModel {
       landId: landId ?? this.landId,
       landName: landName ?? this.landName,
       weightKg: weightKg ?? this.weightKg,
+      bunchCount: bunchCount ?? this.bunchCount,
       harvestDate: harvestDate ?? this.harvestDate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

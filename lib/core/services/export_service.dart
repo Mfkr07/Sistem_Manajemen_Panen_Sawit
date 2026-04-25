@@ -45,7 +45,7 @@ class ExportService {
             pw.TableHelper.fromTextArray(
               headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
               cellStyle: const pw.TextStyle(fontSize: 9),
-              headers: ['No', 'Tanggal Panen', 'Nama Lahan', 'Berat (Kg)', 'Waktu Upload', 'Terakhir Diedit'],
+              headers: ['No', 'Tanggal Panen', 'Nama Lahan', 'Berat (Kg)', 'Tandan', 'Rata-rata/Tandan', 'Waktu Upload', 'Terakhir Diedit'],
               data: List.generate(harvests.length, (i) {
                 final h = harvests[i];
                 return [
@@ -53,6 +53,8 @@ class ExportService {
                   DateFormat('dd MMM yyyy').format(h.harvestDate),
                   landNameMap[h.landId] ?? h.landName ?? h.landId,
                   '${h.weightKg}',
+                  h.bunchCount > 0 ? '${h.bunchCount}' : '-',
+                  h.bunchCount > 0 ? '${h.avgWeightPerBunch.toStringAsFixed(2)}' : '-',
                   DateFormat('dd MMM yyyy HH:mm').format(h.createdAt),
                   DateFormat('dd MMM yyyy HH:mm').format(h.updatedAt),
                 ];
@@ -63,7 +65,7 @@ class ExportService {
               mainAxisAlignment: pw.MainAxisAlignment.end,
               children: [
                 pw.Text(
-                  'Total Berat: ${harvests.fold(0.0, (sum, h) => sum + h.weightKg).toStringAsFixed(1)} Kg',
+                  'Total: ${harvests.fold(0.0, (sum, h) => sum + h.weightKg).toStringAsFixed(1)} Kg  |  ${harvests.fold(0, (sum, h) => sum + h.bunchCount)} Tandan',
                   style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14),
                 ),
               ],
@@ -95,6 +97,8 @@ class ExportService {
       TextCellValue('Tanggal Panen'),
       TextCellValue('Nama Lahan'),
       TextCellValue('Berat Panen (Kg)'),
+      TextCellValue('Jumlah Tandan'),
+      TextCellValue('Rata-rata/Tandan (Kg)'),
       TextCellValue('Waktu Upload'),
       TextCellValue('Terakhir Diedit'),
     ]);
@@ -107,6 +111,8 @@ class ExportService {
         TextCellValue(DateFormat('yyyy-MM-dd').format(h.harvestDate)),
         TextCellValue(landNameMap[h.landId] ?? h.landName ?? h.landId),
         DoubleCellValue(h.weightKg),
+        IntCellValue(h.bunchCount),
+        DoubleCellValue(h.bunchCount > 0 ? h.avgWeightPerBunch : 0),
         TextCellValue(DateFormat('yyyy-MM-dd HH:mm').format(h.createdAt)),
         TextCellValue(DateFormat('yyyy-MM-dd HH:mm').format(h.updatedAt)),
       ]);

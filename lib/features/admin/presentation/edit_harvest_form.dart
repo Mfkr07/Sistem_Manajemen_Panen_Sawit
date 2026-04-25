@@ -18,6 +18,7 @@ class EditHarvestForm extends StatefulWidget {
 class _EditHarvestFormState extends State<EditHarvestForm> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _weightController;
+  late final TextEditingController _bunchCountController;
 
   List<LandModel> _lands = [];
   late String? _selectedLandId;
@@ -29,6 +30,7 @@ class _EditHarvestFormState extends State<EditHarvestForm> {
   void initState() {
     super.initState();
     _weightController = TextEditingController(text: widget.harvest.weightKg.toString());
+    _bunchCountController = TextEditingController(text: widget.harvest.bunchCount > 0 ? widget.harvest.bunchCount.toString() : '');
     _selectedLandId = widget.harvest.landId;
     _selectedDate = widget.harvest.harvestDate;
     _loadLands();
@@ -86,12 +88,14 @@ class _EditHarvestFormState extends State<EditHarvestForm> {
 
     try {
       final double weight = double.parse(_weightController.text);
+      final int bunchCount = int.tryParse(_bunchCountController.text) ?? 0;
       final selectedLand = _lands.where((l) => l.id == _selectedLandId).firstOrNull;
 
       final updatedHarvest = widget.harvest.copyWith(
         landId: _selectedLandId,
         landName: selectedLand?.name,
         weightKg: weight,
+        bunchCount: bunchCount,
         harvestDate: _selectedDate,
         updatedAt: DateTime.now(),
         syncStatus: 'pending',
@@ -122,6 +126,7 @@ class _EditHarvestFormState extends State<EditHarvestForm> {
   @override
   void dispose() {
     _weightController.dispose();
+    _bunchCountController.dispose();
     super.dispose();
   }
 
@@ -222,6 +227,27 @@ class _EditHarvestFormState extends State<EditHarvestForm> {
                       ),
                       const SizedBox(height: 20),
 
+                      // Bunch Count
+                      Text('Jumlah Tandan', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: c.textSecondary)),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _bunchCountController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          prefixIcon: Icon(Icons.grass_rounded),
+                          suffixText: 'Tandan',
+                          hintText: 'Masukkan jumlah tandan',
+                        ),
+                        onChanged: (_) => setState(() {}),
+                        validator: (val) {
+                          if (val == null || val.isEmpty) return 'Wajib diisi';
+                          if (int.tryParse(val) == null) return 'Harus berupa angka bulat';
+                          if (int.parse(val) <= 0) return 'Jumlah tandan harus lebih dari 0';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+
                       // Date
                       Text('Tanggal Panen', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: c.textSecondary)),
                       const SizedBox(height: 8),
@@ -237,7 +263,82 @@ class _EditHarvestFormState extends State<EditHarvestForm> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 24),
+
+                      // Summary Card
+                      Builder(builder: (context) {
+                        final weight = double.tryParse(_weightController.text);
+                        final bunches = int.tryParse(_bunchCountController.text);
+                        final hasData = weight != null && weight > 0 && bunches != null && bunches > 0;
+                        final avg = hasData ? (weight / bunches) : 0.0;
+
+                        return AnimatedSize(
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeOutCubic,
+                          child: hasData
+                              ? Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        AppColors.primary.withValues(alpha: 0.08),
+                                        AppColors.cyan.withValues(alpha: 0.06),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.analytics_outlined, color: AppColors.primary, size: 16),
+                                          const SizedBox(width: 8),
+                                          Text('Ringkasan Panen', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 14),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: _summaryItem('Total Berat', '${weight.toStringAsFixed(1)} KG', Icons.monitor_weight_outlined, c),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: _summaryItem('Jumlah Tandan', '$bunches Tandan', Icons.grass_rounded, c),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.cyan.withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: AppColors.cyan.withValues(alpha: 0.25)),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            const Icon(Icons.balance_rounded, color: AppColors.cyan, size: 18),
+                                            const SizedBox(width: 8),
+                                            Text('Rata-rata: ', style: GoogleFonts.inter(fontSize: 13, color: c.textSecondary)),
+                                            Text('${avg.toStringAsFixed(2)} KG/Tandan',
+                                                style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.cyan)),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
+                        );
+                      }),
+                      const SizedBox(height: 24),
 
                       // Save button
                       Container(
@@ -267,6 +368,33 @@ class _EditHarvestFormState extends State<EditHarvestForm> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _summaryItem(String label, String value, IconData icon, DColors c) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: c.border),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: c.textMuted),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: GoogleFonts.inter(fontSize: 10, color: c.textMuted)),
+                const SizedBox(height: 2),
+                Text(value, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: c.textPrimary)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
