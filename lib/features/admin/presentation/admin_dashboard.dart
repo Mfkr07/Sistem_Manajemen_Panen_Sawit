@@ -736,12 +736,13 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: _histLandFilter,
+                    isExpanded: true,
                     icon: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: c.textMuted),
                     style: GoogleFonts.inter(fontSize: 12, color: c.textPrimary, fontWeight: FontWeight.w600),
                     dropdownColor: c.surface,
                     items: [
-                      const DropdownMenuItem(value: null, child: Text('Semua Lahan')),
-                      ..._lands.map((l) => DropdownMenuItem(value: l.id, child: Text(l.name))),
+                      const DropdownMenuItem(value: null, child: Text('Semua Lahan', overflow: TextOverflow.ellipsis)),
+                      ..._lands.map((l) => DropdownMenuItem(value: l.id, child: Text(l.name, overflow: TextOverflow.ellipsis))),
                     ],
                     onChanged: (val) => setState(() => _histLandFilter = val),
                   ),
@@ -1044,8 +1045,8 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                           mainAxisSpacing: 16, crossAxisSpacing: 16, mainAxisExtent: 310), // Extent lebih besar agar ada ruang shadow bloom
                         itemCount: _lands.length,
                         itemBuilder: (_, i) => _buildLandCard(_lands[i], c))
-                    : ListView.builder(padding: const EdgeInsets.symmetric(horizontal: 16), itemCount: _lands.length,
-                        itemBuilder: (_, i) => Padding(padding: const EdgeInsets.only(bottom: 20), child: _buildLandCard(_lands[i], c))),
+                    : ListView.builder(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), itemCount: _lands.length,
+                        itemBuilder: (_, i) => Padding(padding: const EdgeInsets.only(bottom: 16), child: SizedBox(height: 310, child: _buildLandCard(_lands[i], c)))),
               ))),
       ]);
     });
@@ -1795,8 +1796,8 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
           TextField(controller: treeCountController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Jumlah Batang', prefixIcon: Icon(Icons.nature_people))),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            initialValue: selectedStakeholderId, decoration: const InputDecoration(labelText: 'Pemilik (Stakeholder)', prefixIcon: Icon(Icons.person)),
-            items: _stakeholders.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name.isEmpty ? s.email : s.name))).toList(),
+            initialValue: selectedStakeholderId, isExpanded: true, decoration: const InputDecoration(labelText: 'Pemilik (Stakeholder)', prefixIcon: Icon(Icons.person)),
+            items: _stakeholders.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name.isEmpty ? s.email : s.name, overflow: TextOverflow.ellipsis))).toList(),
             onChanged: (val) => setDialogState(() => selectedStakeholderId = val),
           ),
         ])),
@@ -1895,8 +1896,9 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             initialValue: _stakeholders.any((s) => s.id == selectedStakeholderId) ? selectedStakeholderId : null,
+            isExpanded: true,
             decoration: const InputDecoration(labelText: 'Pemilik (Stakeholder)', prefixIcon: Icon(Icons.person)),
-            items: _stakeholders.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name.isEmpty ? s.email : s.name))).toList(),
+            items: _stakeholders.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name.isEmpty ? s.email : s.name, overflow: TextOverflow.ellipsis))).toList(),
             onChanged: (val) => setDialogState(() => selectedStakeholderId = val),
           ),
         ])),

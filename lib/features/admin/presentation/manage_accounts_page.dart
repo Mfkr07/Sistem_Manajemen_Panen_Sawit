@@ -76,6 +76,7 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
                 // Role
                 DropdownButtonFormField<String>(
                   initialValue: selectedRole,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Role',
                     prefixIcon: Icon(Icons.admin_panel_settings_outlined),

@@ -193,13 +193,14 @@ class _InputHarvestFormState extends State<InputHarvestForm> {
                                 )
                               : DropdownButtonFormField<String>(
                                   initialValue: _selectedLandId,
+                                  isExpanded: true,
                                   decoration: const InputDecoration(
                                     prefixIcon: Icon(Icons.terrain),
                                     hintText: 'Pilih lahan...',
                                   ),
                                   items: _lands.map((land) => DropdownMenuItem(
                                     value: land.id,
-                                    child: Text('${land.name} (${land.sizeHectares} Ha)'),
+                                    child: Text('${land.name} (${land.sizeHectares} Ha)', overflow: TextOverflow.ellipsis),
                                   )).toList(),
                                   onChanged: (val) => setState(() => _selectedLandId = val),
                                   validator: (val) => val == null ? 'Pilih lahan' : null,

@@ -195,13 +195,14 @@ class _EditHarvestFormState extends State<EditHarvestForm> {
                           ? const LinearProgressIndicator()
                           : DropdownButtonFormField<String>(
                               initialValue: _lands.any((l) => l.id == _selectedLandId) ? _selectedLandId : null,
+                              isExpanded: true,
                               decoration: const InputDecoration(
                                 prefixIcon: Icon(Icons.terrain),
                                 hintText: 'Pilih lahan...',
                               ),
                               items: _lands.map((land) => DropdownMenuItem(
                                 value: land.id,
-                                child: Text('${land.name} (${land.sizeHectares} Ha)'),
+                                child: Text('${land.name} (${land.sizeHectares} Ha)', overflow: TextOverflow.ellipsis),
                               )).toList(),
                               onChanged: (val) => setState(() => _selectedLandId = val),
                               validator: (val) => val == null ? 'Pilih lahan' : null,

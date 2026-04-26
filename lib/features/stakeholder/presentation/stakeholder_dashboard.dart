@@ -694,8 +694,8 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
                       child: const Icon(Icons.close_rounded, color: Colors.white, size: 16),
                     ),
                   )),
-                  Positioned(bottom: 20, left: 24, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(land.name, style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white)),
+                  Positioned(bottom: 20, left: 24, right: 24, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(land.name, style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white), maxLines: 2, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 6),
                     Row(children: [
                       const Icon(Icons.location_on_outlined, color: AppColors.violet, size: 14),
@@ -709,12 +709,18 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
               // 3 Detail Cards
               Padding(
                 padding: const EdgeInsets.all(24),
-                child: Row(children: [
-                  Expanded(child: _sDetailCard('LUAS LAHAN', Icons.map_outlined, '${land.sizeHectares}', 'Ha', c)),
-                  const SizedBox(width: 16),
-                  Expanded(child: _sDetailCard('JUMLAH POHON', Icons.nature_outlined, '${land.treeCount}', 'Batang', c)),
-                  const SizedBox(width: 16),
-                  Expanded(child: _sDetailCard('TOTAL PANEN', Icons.scale_outlined, total.toStringAsFixed(1), 'KG', c, highlight: true)),
+                child: Column(children: [
+                  Row(children: [
+                    Expanded(child: _sDetailCard('LUAS LAHAN', Icons.map_outlined, '${land.sizeHectares}', 'Ha', c)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _sDetailCard('JUMLAH POHON', Icons.nature_outlined, '${land.treeCount}', 'Batang', c)),
+                  ]),
+                  const SizedBox(height: 16),
+                  Row(children: [
+                    Expanded(child: _sDetailCard('TOTAL PANEN', Icons.scale_outlined, total.toStringAsFixed(1), 'KG', c, highlight: true)),
+                    const SizedBox(width: 16),
+                    Expanded(child: const SizedBox()),
+                  ]),
                 ]),
               ),
 
@@ -772,7 +778,7 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Icon(icon, size: 12, color: c.textMuted), const SizedBox(width: 6),
-            Text(title, style: GoogleFonts.inter(color: c.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
+            Flexible(child: Text(title, style: GoogleFonts.inter(color: c.textMuted, fontSize: 10, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
           ]),
           const SizedBox(height: 12),
           Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
