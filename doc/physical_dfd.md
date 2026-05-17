@@ -15,7 +15,7 @@ flowchart TB
         STAKEHOLDER["👤 Stakeholder\n(Pemilik Lahan)"]
     end
 
-    SISTEM["⚙️ Sistem Manajemen\nPemanenan Sawit\n(Flutter App)"]
+    SISTEM[" Sistem Manajemen\nPemanenan Sawit\n(Flutter App)"]
 
     ADMIN -->|"Email + Password"| SISTEM
     SISTEM -->|"Dashboard, Laporan PDF/Excel"| ADMIN
