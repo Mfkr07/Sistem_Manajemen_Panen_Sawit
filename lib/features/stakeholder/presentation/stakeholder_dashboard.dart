@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import '../../shared/presentation/profile_settings_page.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -833,6 +834,10 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
             Switch(value: isDark, activeThumbColor: AppColors.primary,
               onChanged: (_) => ref.read(themeModeProvider.notifier).toggle()),
           ])),
+        const SizedBox(height: 12),
+        _sTile(c, Icons.edit_rounded, 'Edit Profil & Sandi', () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileSettingsPage()));
+        }),
         const SizedBox(height: 12),
         _sTile(c, Icons.download_rounded, 'Export Rekapitulasi', () {
           if (_harvests.isNotEmpty) _showExportDialog();

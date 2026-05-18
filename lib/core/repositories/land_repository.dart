@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
 import '../database/local_db.dart';
+import '../services/supabase_admin_service.dart';
 
 final landRepositoryProvider = Provider((ref) => LandRepository());
 
@@ -45,9 +46,21 @@ class LandRepository {
     await _supabase.from('lands').insert(land.toJson());
   }
 
-  /// Delete a land
+  /// Delete a land and its associated image
   Future<void> deleteLand(String id) async {
+    // Attempt to delete image from storage first
+    try {
+      await deleteLandImage(id);
+    } catch (e) {
+      debugPrint('Failed to delete land image: $e');
+    }
     await _supabase.from('lands').delete().eq('id', id);
+  }
+
+  /// Delete land image from storage
+  Future<void> deleteLandImage(String landId) async {
+    final path = '$landId/image.jpg';
+    await _supabase.storage.from('lands').remove([path]);
   }
 
   /// Update a land
@@ -58,6 +71,16 @@ class LandRepository {
     if (treeCount != null) updates['tree_count'] = treeCount;
     if (stakeholderId != null) updates['stakeholder_id'] = stakeholderId;
     if (imageUrl != null) updates['image_url'] = imageUrl;
+
+    if (imageUrl == '') {
+      // If imageUrl is empty string, it means the photo was removed
+      try {
+        await deleteLandImage(id);
+      } catch (e) {
+        debugPrint('Failed to delete old image when removing photo: $e');
+      }
+    }
+    
     if (updates.isEmpty) return;
     await _supabase.from('lands').update(updates).eq('id', id);
   }
@@ -214,6 +237,45 @@ class LandRepository {
 
   /// Delete user from users table
   Future<void> deleteUser(String userId) async {
-    await _supabase.from('users').delete().eq('id', userId);
+    // We should delete from auth.users via admin API to completely wipe the user
+    try {
+      await SupabaseAdminService.adminClient.auth.admin.deleteUser(userId);
+    } catch (e) {
+      debugPrint('Admin delete user failed, fallback to public table delete: $e');
+      await _supabase.from('users').delete().eq('id', userId);
+    }
+  }
+
+  /// Create a new user (Admin ONLY)
+  Future<void> createUserByAdmin(String email, String password, String name, String role) async {
+    // 1. Create auth user bypassing email confirmation using Service Role Key
+    final adminAuth = SupabaseAdminService.adminClient.auth.admin;
+    final res = await adminAuth.createUser(
+      AdminUserAttributes(
+        email: email,
+        password: password,
+        emailConfirm: true, // Auto confirm
+        userMetadata: {
+          'name': name,
+          'role': role,
+        },
+      ),
+    );
+
+    // Note: Since Supabase sometimes does not have the trigger `handle_new_user` 
+    // we explicitly upsert into the public `users` table to ensure the user exists.
+    if (res.user != null) {
+      try {
+        await _supabase.from('users').upsert({
+          'id': res.user!.id,
+          'email': email,
+          'name': name,
+          'role': role,
+        });
+      } catch (e) {
+        debugPrint('Upsert failed, falling back to update: $e');
+        await updateUser(res.user!.id, name: name, role: role);
+      }
+    }
   }
 }

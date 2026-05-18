@@ -195,6 +195,93 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
     );
   }
 
+  void _showAddUserDialog() {
+    final nameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    String role = 'stakeholder';
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) {
+          final c = context.dc;
+          return AlertDialog(
+            title: Text('Tambah Akun', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(labelText: 'Nama Lengkap'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: emailCtrl,
+                    decoration: const InputDecoration(labelText: 'Email'),
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: passCtrl,
+                    decoration: const InputDecoration(labelText: 'Password'),
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: role,
+                    decoration: const InputDecoration(labelText: 'Role'),
+                    items: const [
+                      DropdownMenuItem(value: 'admin', child: Text('Admin')),
+                      DropdownMenuItem(value: 'stakeholder', child: Text('Stakeholder')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setState(() => role = val);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isLoading ? null : () => Navigator.pop(ctx),
+                child: const Text('Batal'),
+              ),
+              Container(
+                decoration: BoxDecoration(gradient: AppColors.gradientPrimary, borderRadius: BorderRadius.circular(10)),
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, elevation: 0),
+                  onPressed: isLoading ? null : () async {
+                    if (nameCtrl.text.isEmpty || emailCtrl.text.isEmpty || passCtrl.text.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Harap isi semua field')));
+                      return;
+                    }
+                    setState(() => isLoading = true);
+                    try {
+                      await _repo.createUserByAdmin(emailCtrl.text.trim(), passCtrl.text, nameCtrl.text.trim(), role);
+                      if (mounted) {
+                        Navigator.pop(ctx);
+                        _loadUsers();
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Akun berhasil dibuat'), backgroundColor: Colors.green));
+                      }
+                    } catch (e) {
+                      setState(() => isLoading = false);
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal membuat akun: $e')));
+                    }
+                  },
+                  child: isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Simpan'),
+                ),
+              ),
+            ],
+          );
+        }
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.dc;
@@ -204,6 +291,21 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Manajemen Akun'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: ElevatedButton.icon(
+              onPressed: _showAddUserDialog,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Tambah Akun'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                minimumSize: const Size(0, 36),
+              ),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: _isLoading

@@ -12,6 +12,7 @@ import 'package:image_cropper/image_cropper.dart';
 import 'input_harvest_form.dart';
 import 'edit_harvest_form.dart';
 import 'manage_accounts_page.dart';
+import '../../shared/presentation/profile_settings_page.dart';
 import '../../../core/database/local_db.dart';
 import '../../../core/models/models.dart';
 import '../../../core/repositories/harvest_repository.dart';
@@ -691,21 +692,9 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
         ),
         // --- Tab Content ---
         Expanded(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            transitionBuilder: (child, animation) => FadeTransition(
-              opacity: animation,
-              child: SlideTransition(
-                position: Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero).animate(animation),
-                child: child,
-              ),
-            ),
-            child: _historyViewIndex == 0 
-                ? KeyedSubtree(key: const ValueKey('panen'), child: _historyPanenView(isWide, c))
-                : KeyedSubtree(key: const ValueKey('rekap'), child: _historyRekapView(isWide, c)),
-          ),
+          child: _historyViewIndex == 0 
+              ? _historyPanenView(isWide, c)
+              : _historyRekapView(isWide, c),
         ),
       ]);
     });
@@ -724,27 +713,30 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
           constraints: const BoxConstraints(maxWidth: 1400),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Expanded(child: Text('Pilih Lahan', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted))),
-              Container(
-                height: 36,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: c.surfaceLight,
-                  border: Border.all(color: c.border),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _histLandFilter,
-                    isExpanded: true,
-                    icon: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: c.textMuted),
-                    style: GoogleFonts.inter(fontSize: 12, color: c.textPrimary, fontWeight: FontWeight.w600),
-                    dropdownColor: c.surface,
-                    items: [
-                      const DropdownMenuItem(value: null, child: Text('Semua Lahan', overflow: TextOverflow.ellipsis)),
-                      ..._lands.map((l) => DropdownMenuItem(value: l.id, child: Text(l.name, overflow: TextOverflow.ellipsis))),
-                    ],
-                    onChanged: (val) => setState(() => _histLandFilter = val),
+              Expanded(flex: 1, child: Text('Pilih Lahan', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted))),
+              Expanded(
+                flex: 2,
+                child: Container(
+                  height: 36,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: c.surfaceLight,
+                    border: Border.all(color: c.border),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _histLandFilter,
+                      isExpanded: true,
+                      icon: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: c.textMuted),
+                      style: GoogleFonts.inter(fontSize: 12, color: c.textPrimary, fontWeight: FontWeight.w600),
+                      dropdownColor: c.surface,
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text('Semua Lahan', overflow: TextOverflow.ellipsis)),
+                        ..._lands.map((l) => DropdownMenuItem(value: l.id, child: Text(l.name, overflow: TextOverflow.ellipsis))),
+                      ],
+                      onChanged: (val) => setState(() => _histLandFilter = val),
+                    ),
                   ),
                 ),
               ),
@@ -1078,6 +1070,9 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
           ]),
         ),
         const SizedBox(height: 12),
+        _settingTile(c, Icons.person_rounded, 'Profil Saya', 'Ubah email dan sandi', () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileSettingsPage()));
+        }),
         _settingTile(c, Icons.people_outline_rounded, 'Manajemen Akun', 'Kelola user & role', () {
           Navigator.push(context, MaterialPageRoute(builder: (_) => const ManageAccountsPage()));
         }),
@@ -1706,7 +1701,10 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
     XFile? pickedFile;
     
     try {
-      pickedFile = await picker.pickImage(source: ImageSource.gallery);
+      pickedFile = await picker.pickImage(
+        source: ImageSource.gallery, 
+        imageQuality: 40, // Kompres ukuran awal agar tidak terlalu berat
+      );
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error ImagePicker: $e')));
       return null;
@@ -1725,6 +1723,8 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
     try {
       final croppedFile = await ImageCropper().cropImage(
         sourcePath: pickedFile.path,
+        compressQuality: 40, // Kompres kualitas setelah di-crop
+        compressFormat: ImageCompressFormat.jpg, // Standarisasi format ke JPG
         aspectRatio: const CropAspectRatio(ratioX: 4, ratioY: 3),
         uiSettings: [
           AndroidUiSettings(
