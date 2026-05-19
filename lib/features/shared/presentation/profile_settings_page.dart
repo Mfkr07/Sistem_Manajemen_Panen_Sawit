@@ -16,6 +16,8 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
+  final _oldPassCtrl = TextEditingController();
+  final _confirmPassCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
   bool _isLoading = false;
 
@@ -40,6 +42,24 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
 
     setState(() => _isLoading = true);
     try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) throw Exception('Sesi tidak valid');
+
+      // Verify old password if trying to set a new one
+      if (_passCtrl.text.isNotEmpty) {
+        if (_oldPassCtrl.text.isEmpty) {
+          throw Exception('Masukkan password lama Anda untuk mengubah password');
+        }
+        try {
+          await _supabase.auth.signInWithPassword(
+            email: user.email!,
+            password: _oldPassCtrl.text,
+          );
+        } catch (_) {
+          throw Exception('Password lama yang Anda masukkan salah');
+        }
+      }
+
       final updates = UserAttributes(
         email: _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
         password: _passCtrl.text.isNotEmpty ? _passCtrl.text : null,
@@ -62,11 +82,13 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
           const SnackBar(content: Text('Profil berhasil diperbarui'), backgroundColor: Colors.green),
         );
         _passCtrl.clear(); // Clear password field after success
+        _oldPassCtrl.clear();
+        _confirmPassCtrl.clear();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal memperbarui profil: $e')),
+          SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))),
         );
       }
     } finally {
@@ -78,6 +100,8 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
   void dispose() {
     _emailCtrl.dispose();
     _passCtrl.dispose();
+    _oldPassCtrl.dispose();
+    _confirmPassCtrl.dispose();
     _nameCtrl.dispose();
     super.dispose();
   }
@@ -128,12 +152,38 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
                       ),
                       const SizedBox(height: 16),
 
+                      Text('Password Lama', style: GoogleFonts.inter(color: c.textPrimary, fontWeight: FontWeight.w600, fontSize: 13)),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _oldPassCtrl,
+                        obscureText: true,
+                        decoration: const InputDecoration(hintText: 'Masukkan password saat ini jika ingin mengubah'),
+                      ),
+                      const SizedBox(height: 16),
+
                       Text('Kata Sandi Baru (Opsional)', style: GoogleFonts.inter(color: c.textPrimary, fontWeight: FontWeight.w600, fontSize: 13)),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _passCtrl,
                         obscureText: true,
                         decoration: const InputDecoration(hintText: 'Biarkan kosong jika tidak ingin mengubah'),
+                        validator: (v) {
+                          if (_oldPassCtrl.text.isNotEmpty && (v == null || v.isEmpty)) return 'Masukkan password baru';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      Text('Konfirmasi Kata Sandi Baru', style: GoogleFonts.inter(color: c.textPrimary, fontWeight: FontWeight.w600, fontSize: 13)),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _confirmPassCtrl,
+                        obscureText: true,
+                        decoration: const InputDecoration(hintText: 'Ulangi password baru'),
+                        validator: (v) {
+                          if (_passCtrl.text.isNotEmpty && v != _passCtrl.text) return 'Password tidak cocok';
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 32),
 

@@ -99,7 +99,7 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
     {'icon': Icons.home_rounded, 'label': 'Beranda'},
     {'icon': Icons.receipt_long_rounded, 'label': 'Histori'},
     {'icon': Icons.terrain_rounded, 'label': 'Lahan'},
-    {'icon': Icons.person_rounded, 'label': 'Profil'},
+    {'icon': Icons.settings_rounded, 'label': 'Pengaturan'},
   ];
 
   String get _userInitials {
@@ -185,6 +185,19 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
           );
         }),
         const Spacer(),
+        // Profile
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: ListTile(
+            leading: Icon(Icons.person_rounded, color: c.textSecondary, size: 22),
+            title: Text('Profil', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: c.textPrimary, fontSize: 14)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileSettingsPage()));
+            },
+          ),
+        ),
+        const SizedBox(height: 4),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Container(
@@ -267,7 +280,7 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
             BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Beranda'),
             BottomNavigationBarItem(icon: Icon(Icons.receipt_long_rounded), label: 'Histori'),
             BottomNavigationBarItem(icon: Icon(Icons.terrain_rounded), label: 'Lahan'),
-            BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profil'),
+            BottomNavigationBarItem(icon: Icon(Icons.settings_rounded), label: 'Pengaturan'),
           ],
         ) : null,
       );
@@ -795,30 +808,12 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
   }
 
 
-  // ═══════════════════════════════════════════════════
-  // TAB 3 – PROFILE
-  // ═══════════════════════════════════════════════════
   Widget _profileTab() {
     final c = context.dc;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return SingleChildScrollView(padding: const EdgeInsets.all(16), child: Center(child: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 600),
       child: Column(children: [
-        // User card
-        Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(
-            color: c.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: c.border)),
-          child: Row(children: [
-            Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(
-                gradient: AppColors.gradientViolet, borderRadius: BorderRadius.circular(14)),
-              child: const Icon(Icons.person_rounded, size: 28, color: Colors.white)),
-            const SizedBox(width: 16),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(_name.isEmpty ? 'Stakeholder' : _name, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16, color: c.textPrimary)),
-              const SizedBox(height: 2),
-              Text(_email, style: GoogleFonts.inter(fontSize: 13, color: c.textMuted)),
-            ])),
-          ])),
-        const SizedBox(height: 16),
         // Theme
         Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(
             color: c.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: c.border)),
@@ -834,10 +829,6 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
             Switch(value: isDark, activeThumbColor: AppColors.primary,
               onChanged: (_) => ref.read(themeModeProvider.notifier).toggle()),
           ])),
-        const SizedBox(height: 12),
-        _sTile(c, Icons.edit_rounded, 'Edit Profil & Sandi', () {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileSettingsPage()));
-        }),
         const SizedBox(height: 12),
         _sTile(c, Icons.download_rounded, 'Export Rekapitulasi', () {
           if (_harvests.isNotEmpty) _showExportDialog();

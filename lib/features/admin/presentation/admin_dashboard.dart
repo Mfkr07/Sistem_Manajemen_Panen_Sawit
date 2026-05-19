@@ -228,44 +228,72 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
         ...List.generate(_drawerItems.length, (i) {
           final item = _drawerItems[i];
           final active = _tabIndex == i;
-          return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-            child: Material(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-              child: InkWell(
+
+          Widget buildItem(IconData icon, String label, bool isActive, VoidCallback onTap) {
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+              child: Material(
+                color: Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
-                onTap: () => setState(() => _tabIndex = i),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-                  decoration: BoxDecoration(
-                    color: active ? AppColors.primary.withValues(alpha: 0.1) : null,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(children: [
-                    // Active bar indicator
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: 3, height: active ? 24 : 0,
-                      decoration: BoxDecoration(
-                        color: active ? AppColors.primary : Colors.transparent,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: onTap,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                    decoration: BoxDecoration(
+                      color: isActive ? AppColors.primary.withValues(alpha: 0.1) : null,
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    SizedBox(width: active ? 10 : 13),
-                    Icon(item['icon'] as IconData,
-                        color: active ? AppColors.primary : c.textMuted, size: 21),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text(item['label'] as String, style: GoogleFonts.inter(
-                        fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                        color: active ? AppColors.primary : c.textPrimary, fontSize: 14))),
-                  ]),
+                    child: Row(children: [
+                      // Active bar indicator
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: 3, height: isActive ? 24 : 0,
+                        decoration: BoxDecoration(
+                          color: isActive ? AppColors.primary : Colors.transparent,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      SizedBox(width: isActive ? 10 : 13),
+                      Icon(icon, color: isActive ? AppColors.primary : c.textMuted, size: 21),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text(label, style: GoogleFonts.inter(
+                          fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                          color: isActive ? AppColors.primary : c.textPrimary, fontSize: 14))),
+                    ]),
+                  ),
                 ),
               ),
-            ),
-          );
+            );
+          }
+
+          if (item['label'] == 'Pengaturan') {
+            return Column(
+              children: [
+                buildItem(Icons.people_outline_rounded, 'Manajemen Akun', false, () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const ManageAccountsPage()));
+                }),
+                buildItem(item['icon'] as IconData, item['label'] as String, active, () => setState(() => _tabIndex = i)),
+              ]
+            );
+          }
+
+          return buildItem(item['icon'] as IconData, item['label'] as String, active, () => setState(() => _tabIndex = i));
         }),
         const Spacer(),
+        // Profile
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: ListTile(
+            leading: Icon(Icons.person_rounded, color: c.textSecondary, size: 22),
+            title: Text('Profil', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: c.textPrimary, fontSize: 14)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileSettingsPage()));
+            },
+          ),
+        ),
+        const SizedBox(height: 4),
         // Logout
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
