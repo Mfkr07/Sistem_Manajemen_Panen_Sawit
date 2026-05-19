@@ -288,75 +288,68 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
     final adminCount = _users.where((u) => u.role == 'admin').length;
     final stakeholderCount = _users.where((u) => u.role == 'stakeholder').length;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Manajemen Akun'),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: ElevatedButton.icon(
-              onPressed: _showAddUserDialog,
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Tambah Akun'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                minimumSize: const Size(0, 36),
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
-                children: [
-                  // Summary bar
-                  Center(child: ConstrainedBox(
+    return _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : Column(
+            children: [
+              // Page Header
+              Center(child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 1200),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: c.surfaceLight,
-                        border: Border(bottom: BorderSide(color: c.border)),
-                      ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 32, 16, 24),
                       child: Row(
                         children: [
-                          _roleBadge('Admin', adminCount, AppColors.cyan, c),
-                          const SizedBox(width: 12),
-                          _roleBadge('Stakeholder', stakeholderCount, AppColors.violet, c),
-                          const Spacer(),
-                          Text(
-                            'Total: ${_users.length}',
-                            style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: c.textSecondary, fontSize: 13),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Kelola Pengguna', style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w800, color: c.textPrimary)),
+                                const SizedBox(height: 4),
+                                Text('Tambah, edit, atau hapus akun pengguna sistem.', style: GoogleFonts.inter(fontSize: 14, color: c.textSecondary)),
+                              ],
+                            ),
+                          ),
+                          ElevatedButton.icon(
+                            onPressed: _showAddUserDialog,
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('Tambah Pengguna', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
                           ),
                         ],
                       ),
                     ),
                   )),
-                  // Info banner
+                  // Summary bar
                   Center(child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 1200),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: AppColors.cyan.withValues(alpha: 0.06),
-                        border: Border(bottom: BorderSide(color: c.border)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.info_outline_rounded, color: AppColors.cyan, size: 16),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Untuk menambah akun baru, buat melalui Supabase Dashboard → Authentication.',
-                              style: GoogleFonts.inter(fontSize: 12, color: AppColors.cyan),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        decoration: BoxDecoration(
+                          color: c.surface,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: c.borderLight),
+                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4, offset: const Offset(0, 2))],
+                        ),
+                        child: Row(
+                          children: [
+                            _roleBadge('Admin', adminCount, AppColors.cyan, c),
+                            const SizedBox(width: 12),
+                            _roleBadge('Stakeholder', stakeholderCount, AppColors.violet, c),
+                            const Spacer(),
+                            Text(
+                              'Total: ${_users.length} Akun',
+                              style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: c.textSecondary, fontSize: 13),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   )),
@@ -374,7 +367,7 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
                                     constraints: const BoxConstraints(maxWidth: 1200),
                                     child: isWide
                                         ? GridView.builder(
-                                            padding: const EdgeInsets.all(16),
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                                             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                                               crossAxisCount: constraints.maxWidth >= 1000 ? 2 : 1,
                                               mainAxisSpacing: 10, crossAxisSpacing: 12,
@@ -384,7 +377,7 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
                                             itemBuilder: (_, index) => _buildUserCard(_users[index], c),
                                           )
                                         : ListView.builder(
-                                            padding: const EdgeInsets.all(16),
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                                             itemCount: _users.length,
                                             itemBuilder: (_, index) => Padding(
                                               padding: const EdgeInsets.only(bottom: 10),
@@ -397,10 +390,8 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
                             ),
                     ),
                   ),
-                ],
-              ),
-      ),
-    );
+            ],
+          );
   }
 
   Widget _buildUserCard(UserModel user, DColors c) {
@@ -414,8 +405,9 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: c.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: c.border),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: c.borderLight),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Row(children: [
         // Avatar with gradient

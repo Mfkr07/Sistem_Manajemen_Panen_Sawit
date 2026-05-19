@@ -270,8 +270,8 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
           if (item['label'] == 'Pengaturan') {
             return Column(
               children: [
-                buildItem(Icons.people_outline_rounded, 'Manajemen Akun', false, () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const ManageAccountsPage()));
+                buildItem(Icons.people_outline_rounded, 'Manajemen Akun', _tabIndex == 4, () {
+                  setState(() => _tabIndex = 4);
                 }),
                 buildItem(item['icon'] as IconData, item['label'] as String, active, () => setState(() => _tabIndex = i)),
               ]
@@ -285,11 +285,12 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: ListTile(
-            leading: Icon(Icons.person_rounded, color: c.textSecondary, size: 22),
-            title: Text('Profil', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: c.textPrimary, fontSize: 14)),
+            leading: Icon(Icons.person_rounded, color: _tabIndex == 5 ? AppColors.primary : c.textSecondary, size: 22),
+            title: Text('Profil', style: GoogleFonts.inter(fontWeight: _tabIndex == 5 ? FontWeight.w700 : FontWeight.w600, color: _tabIndex == 5 ? AppColors.primary : c.textPrimary, fontSize: 14)),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            tileColor: _tabIndex == 5 ? AppColors.primary.withValues(alpha: 0.1) : null,
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileSettingsPage()));
+              setState(() => _tabIndex = 5);
             },
           ),
         ),
@@ -332,7 +333,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
   @override
   Widget build(BuildContext context) {
     final c = context.dc;
-    final titles = ['Dashboard Admin', 'Histori Panen', 'Manajemen Lahan', 'Pengaturan'];
+    final titles = ['Dashboard Admin', 'Histori Panen', 'Manajemen Lahan', 'Pengaturan', 'Manajemen Akun', 'Profil'];
 
     return LayoutBuilder(builder: (context, constraints) {
       final isDesktop = constraints.maxWidth >= 900;
@@ -381,6 +382,8 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                 ]))
               : IndexedStack(index: _tabIndex, children: [
                   _homeTab(isDesktop), _historyTab(), _landsTab(), _settingsTab(),
+                  const ManageAccountsPage(),
+                  const ProfileSettingsPage(),
                 ]),
         ),
         floatingActionButton: (isMobile || isTablet) ? Container(

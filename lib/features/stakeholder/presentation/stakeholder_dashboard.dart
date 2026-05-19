@@ -189,11 +189,12 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: ListTile(
-            leading: Icon(Icons.person_rounded, color: c.textSecondary, size: 22),
-            title: Text('Profil', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: c.textPrimary, fontSize: 14)),
+            leading: Icon(Icons.person_rounded, color: _tabIndex == 4 ? AppColors.violet : c.textSecondary, size: 22),
+            title: Text('Profil', style: GoogleFonts.inter(fontWeight: _tabIndex == 4 ? FontWeight.w700 : FontWeight.w600, color: _tabIndex == 4 ? AppColors.violet : c.textPrimary, fontSize: 14)),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            tileColor: _tabIndex == 4 ? AppColors.violet.withValues(alpha: 0.1) : null,
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileSettingsPage()));
+              setState(() => _tabIndex = 4);
             },
           ),
         ),
@@ -232,7 +233,7 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
   @override
   Widget build(BuildContext context) {
     final c = context.dc;
-    final titles = ['Portofolio Anda','Histori Panen','Portofolio Lahan','Profil Stakeholder'];
+    final titles = ['Dashboard Stakeholder', 'Histori Panen', 'Manajemen Lahan', 'Pengaturan', 'Profil Stakeholder'];
     
     return LayoutBuilder(builder: (context, constraints) {
       final isDesktop = constraints.maxWidth >= 900;
@@ -272,7 +273,13 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
                 const CircularProgressIndicator(), const SizedBox(height: 16),
                 Text('Memuat portofolio...', style: GoogleFonts.inter(color: c.textMuted))
               ]))
-            : IndexedStack(index: _tabIndex, children: [_homeTab(isDesktop), _historyTab(), _landsTab(), _profileTab()])),
+            : IndexedStack(index: _tabIndex, children: [
+                _homeTab(isDesktop), 
+                _historyTab(), 
+                _landsTab(), 
+                _profileTab(),
+                const ProfileSettingsPage(),
+              ])),
         bottomNavigationBar: isMobile ? BottomNavigationBar(
           currentIndex: _tabIndex,
           onTap: (i) => setState(() => _tabIndex = i),
