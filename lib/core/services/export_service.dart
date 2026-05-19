@@ -54,7 +54,7 @@ class ExportService {
                   landNameMap[h.landId] ?? h.landName ?? h.landId,
                   '${h.weightKg}',
                   h.bunchCount > 0 ? '${h.bunchCount}' : '-',
-                  h.bunchCount > 0 ? '${h.avgWeightPerBunch.toStringAsFixed(2)}' : '-',
+                  h.bunchCount > 0 ? h.avgWeightPerBunch.toStringAsFixed(2) : '-',
                   DateFormat('dd MMM yyyy HH:mm').format(h.createdAt),
                   DateFormat('dd MMM yyyy HH:mm').format(h.updatedAt),
                 ];

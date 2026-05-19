@@ -48,3 +48,4 @@ app.*.map.json
 analysis_output.txt
 claude.md 
 \lib\core\services\supabase_admin_service.dart
+plan

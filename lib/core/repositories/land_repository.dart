@@ -190,7 +190,10 @@ class LandRepository {
     final pendingFinance = finance.copyWith(syncStatus: 'pending');
     await LocalDatabase.instance.insertFinance(pendingFinance);
     // Optionally trigger sync right away if online
-    syncPendingFinances();
+    syncPendingFinances().catchError((e) {
+      debugPrint('Auto-sync finances failed (non-blocking): $e');
+      return 0;
+    });
   }
 
   /// Get all stakeholders (for admin to assign lands)

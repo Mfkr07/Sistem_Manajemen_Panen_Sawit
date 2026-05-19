@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import '../../shared/presentation/profile_settings_page.dart';
+import '../../admin/presentation/history_table_view.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -281,7 +282,7 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
                 const ProfileSettingsPage(),
               ])),
         bottomNavigationBar: isMobile ? BottomNavigationBar(
-          currentIndex: _tabIndex,
+          currentIndex: _tabIndex.clamp(0, 3),
           onTap: (i) => setState(() => _tabIndex = i),
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Beranda'),
@@ -315,7 +316,7 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
               decoration: BoxDecoration(color: c.surface, border: Border(right: BorderSide(color: c.border))),
               child: NavigationRail(
                 backgroundColor: c.surface,
-                selectedIndex: _tabIndex,
+                selectedIndex: _tabIndex.clamp(0, _drawerItems.length - 1),
                 onDestinationSelected: (i) => setState(() => _tabIndex = i),
                 labelType: NavigationRailLabelType.all,
                 selectedLabelTextStyle: GoogleFonts.inter(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 11),
@@ -470,77 +471,24 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
   // ═══════════════════════════════════════════════════
   Widget _historyTab() {
     final c = context.dc;
-    final filters = ['Semua','7 Hari','1 Bulan','3 Bulan','6 Bulan','1 Tahun','Kustom'];
     final fil = _filteredHist;
-    final tot = fil.fold(0.0, (s, h) => s + h.weightKg);
-    return LayoutBuilder(builder: (context, constraints) {
-      final isWide = constraints.maxWidth >= 700;
-      return Column(children: [
-        Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(color: c.surface, border: Border(bottom: BorderSide(color: c.border))),
-          child: Center(child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1400),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              isWide
-                  ? Wrap(spacing: 6, runSpacing: 6,
-                      children: filters.map((f) {
-                        final sel = _histFilter == f;
-                        return GestureDetector(
-                          onTap: () => _applyHist(f),
-                          child: AnimatedContainer(duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                            decoration: BoxDecoration(gradient: sel ? AppColors.gradientPrimary : null,
-                              color: sel ? null : c.surfaceLight, borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: sel ? Colors.transparent : c.border)),
-                            child: Text(f, style: GoogleFonts.inter(fontSize: 12,
-                                fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                                color: sel ? Colors.white : c.textMuted))));
-                      }).toList())
-                  : SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(
-                      children: filters.map((f) {
-                        final sel = _histFilter == f;
-                        return Padding(padding: const EdgeInsets.only(right: 6), child: GestureDetector(
-                          onTap: () => _applyHist(f),
-                          child: AnimatedContainer(duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                            decoration: BoxDecoration(gradient: sel ? AppColors.gradientPrimary : null,
-                              color: sel ? null : c.surfaceLight, borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: sel ? Colors.transparent : c.border)),
-                            child: Text(f, style: GoogleFonts.inter(fontSize: 12,
-                                fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                                color: sel ? Colors.white : c.textMuted)))));
-                      }).toList())),
-              const SizedBox(height: 10),
-              Row(children: [
-                Expanded(child: Text(_histStart != null && _histEnd != null
-                    ? '${DateFormat('dd MMM yyyy').format(_histStart!)} — ${DateFormat('dd MMM yyyy').format(_histEnd!)}'
-                    : 'Semua waktu', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted))),
-                Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                  child: Text('${fil.length} data • ${tot.toStringAsFixed(1)} KG',
-                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primary))),
-              ]),
-            ]),
-          ))),
-        Expanded(child: fil.isEmpty
-            ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(Icons.inbox_rounded, size: 56, color: c.textMuted), const SizedBox(height: 12),
-                Text('Tidak ada data', style: GoogleFonts.inter(color: c.textMuted))]))
-            : Center(child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1400),
-                child: isWide
-                    ? GridView.builder(
-                        padding: const EdgeInsets.all(16),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: constraints.maxWidth >= 1000 ? 2 : 1,
-                          mainAxisSpacing: 8, crossAxisSpacing: 12, mainAxisExtent: 96),
-                        itemCount: fil.length,
-                        itemBuilder: (_, i) => _hCard(fil[i], c))
-                    : ListView.builder(padding: const EdgeInsets.all(16), itemCount: fil.length,
-                        itemBuilder: (_, i) => _hCard(fil[i], c)),
-              ))),
-      ]);
-    });
+    return HistoryTableView(
+      harvests: fil,
+      lands: _myLands,
+      c: c,
+      onEdit: null, // Stakeholder cannot edit
+      onExport: () => _fmtDialog(fil, 'Histori Panen Stakeholder'),
+      landFilter: null, // Stakeholder doesn't filter by land yet in this simplified view, or we can add state if needed
+      onLandFilterChanged: (v) {},
+      dateFilter: _histFilter,
+      onDateFilterChanged: (v) {
+        if (v == 'Kustom') {
+          _pickHistRange();
+        } else {
+          _applyHist(v);
+        }
+      },
+    );
   }
 
   void _applyHist(String f) {
@@ -549,8 +497,8 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
       switch (f) {
         case 'Semua': _histStart = null; _histEnd = null; break;
         case '7 Hari': _histStart = now.subtract(const Duration(days: 7)); _histEnd = now; break;
-        case '1 Bulan': _histStart = DateTime(now.year, now.month - 1, now.day); _histEnd = now; break;
-        case '3 Bulan': _histStart = DateTime(now.year, now.month - 3, now.day); _histEnd = now; break;
+        case '1 Bulan': _histStart = now.subtract(const Duration(days: 30)); _histEnd = now; break;
+        case '3 Bulan': _histStart = now.subtract(const Duration(days: 90)); _histEnd = now; break;
         case '6 Bulan': _histStart = now.subtract(const Duration(days: 180)); _histEnd = now; break;
         case '1 Tahun': _histStart = now.subtract(const Duration(days: 365)); _histEnd = now; break;
         case 'Kustom': _pickHistRange(); return;
@@ -657,7 +605,7 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(land.name, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white)),
+                    Text(land.name, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: c.textPrimary)),
                     const SizedBox(height: 4),
                     Text('${land.treeCount} Batang', style: GoogleFonts.inter(fontSize: 10, color: c.textMuted), overflow: TextOverflow.ellipsis),
                   ]),
@@ -669,7 +617,7 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
                   child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     Text('TOTAL PANEN', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w700, color: c.textMuted)),
                     Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-                      Text(total.toStringAsFixed(1), style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.white)),
+                      Text(total.toStringAsFixed(1), style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 18, color: c.textPrimary)),
                       const SizedBox(width: 4),
                       Text('KG', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.violet)),
                     ]),
@@ -740,7 +688,7 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
                   Row(children: [
                     Expanded(child: _sDetailCard('TOTAL PANEN', Icons.scale_outlined, total.toStringAsFixed(1), 'KG', c, highlight: true)),
                     const SizedBox(width: 16),
-                    Expanded(child: const SizedBox()),
+                    const Expanded(child: SizedBox()),
                   ]),
                 ]),
               ),
@@ -803,7 +751,7 @@ class _StakeholderState extends ConsumerState<StakeholderDashboardPage> {
           ]),
           const SizedBox(height: 12),
           Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-            Flexible(child: Text(val, style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800), overflow: TextOverflow.ellipsis)),
+            Flexible(child: Text(val, style: GoogleFonts.inter(color: c.textPrimary, fontSize: 18, fontWeight: FontWeight.w800), overflow: TextOverflow.ellipsis)),
             if (unit.isNotEmpty) ...[
               const SizedBox(width: 4),
               Text(unit, style: GoogleFonts.inter(color: highlight ? AppColors.violet : c.textSecondary, fontSize: 11, fontWeight: FontWeight.w600)),

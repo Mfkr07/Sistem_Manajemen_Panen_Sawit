@@ -207,7 +207,7 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setState) {
-          final c = context.dc;
+          final _ = context.dc;
           return AlertDialog(
             title: Text('Tambah Akun', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
             content: SingleChildScrollView(
@@ -232,7 +232,7 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: role,
+                    initialValue: role,
                     decoration: const InputDecoration(labelText: 'Role'),
                     items: const [
                       DropdownMenuItem(value: 'admin', child: Text('Admin')),
@@ -259,17 +259,19 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Harap isi semua field')));
                       return;
                     }
+                    final navigator = Navigator.of(ctx);
+                    final messenger = ScaffoldMessenger.of(context);
                     setState(() => isLoading = true);
                     try {
                       await _repo.createUserByAdmin(emailCtrl.text.trim(), passCtrl.text, nameCtrl.text.trim(), role);
                       if (mounted) {
-                        Navigator.pop(ctx);
+                        navigator.pop();
                         _loadUsers();
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Akun berhasil dibuat'), backgroundColor: Colors.green));
+                        messenger.showSnackBar(const SnackBar(content: Text('Akun berhasil dibuat'), backgroundColor: Colors.green));
                       }
                     } catch (e) {
                       setState(() => isLoading = false);
-                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal membuat akun: $e')));
+                      if (mounted) messenger.showSnackBar(SnackBar(content: Text('Gagal membuat akun: $e')));
                     }
                   },
                   child: isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Simpan'),

@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'input_harvest_form.dart';
 import 'edit_harvest_form.dart';
+import 'history_table_view.dart';
 import 'manage_accounts_page.dart';
 import '../../shared/presentation/profile_settings_page.dart';
 import '../../../core/database/local_db.dart';
@@ -82,6 +83,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
+    _pendingCount = 0;
     try {
       _lands = await LandRepository().getAllLands();
       _stakeholders = await LandRepository().getAllStakeholders();
@@ -427,7 +429,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
               decoration: BoxDecoration(color: c.surface, border: Border(right: BorderSide(color: c.border))),
               child: NavigationRail(
                 backgroundColor: c.surface,
-                selectedIndex: _tabIndex,
+                selectedIndex: _tabIndex.clamp(0, _drawerItems.length - 1),
                 onDestinationSelected: (i) => setState(() => _tabIndex = i),
                 labelType: NavigationRailLabelType.all,
                 selectedLabelTextStyle: GoogleFonts.inter(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 11),
@@ -732,114 +734,28 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
   }
 
   Widget _historyPanenView(bool isWide, DColors c) {
-    final filters = ['Semua', '7 Hari', '1 Bulan', '3 Bulan', '6 Bulan', '1 Tahun', 'Kustom'];
     final filtered = _filteredHistory;
-    final total = filtered.fold(0.0, (s, h) => s + h.weightKg);
 
-    return Column(children: [
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(color: c.surface, border: Border(bottom: BorderSide(color: c.border))),
-        child: Center(child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1400),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Expanded(flex: 1, child: Text('Pilih Lahan', style: GoogleFonts.inter(fontSize: 12, color: c.textMuted))),
-              Expanded(
-                flex: 2,
-                child: Container(
-                  height: 36,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: c.surfaceLight,
-                    border: Border.all(color: c.border),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _histLandFilter,
-                      isExpanded: true,
-                      icon: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: c.textMuted),
-                      style: GoogleFonts.inter(fontSize: 12, color: c.textPrimary, fontWeight: FontWeight.w600),
-                      dropdownColor: c.surface,
-                      items: [
-                        const DropdownMenuItem(value: null, child: Text('Semua Lahan', overflow: TextOverflow.ellipsis)),
-                        ..._lands.map((l) => DropdownMenuItem(value: l.id, child: Text(l.name, overflow: TextOverflow.ellipsis))),
-                      ],
-                      onChanged: (val) => setState(() => _histLandFilter = val),
-                    ),
-                  ),
-                ),
-              ),
-            ]),
-            const SizedBox(height: 12),
-            isWide
-                ? Wrap(spacing: 6, runSpacing: 6,
-                    children: filters.map((f) {
-                      final sel = _histFilter == f;
-                      return GestureDetector(
-                        onTap: () => _applyHistFilter(f),
-                        child: AnimatedContainer(duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                          decoration: BoxDecoration(
-                            gradient: sel ? AppColors.gradientPrimary : null,
-                            color: sel ? null : c.surfaceLight,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: sel ? Colors.transparent : c.border)),
-                          child: Text(f, style: GoogleFonts.inter(fontSize: 12,
-                              fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                              color: sel ? Colors.white : c.textMuted))));
-                    }).toList())
-                : SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(
-                    children: filters.map((f) {
-                      final sel = _histFilter == f;
-                      return Padding(padding: const EdgeInsets.only(right: 6), child: GestureDetector(
-                        onTap: () => _applyHistFilter(f),
-                        child: AnimatedContainer(duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                          decoration: BoxDecoration(
-                            gradient: sel ? AppColors.gradientPrimary : null,
-                            color: sel ? null : c.surfaceLight,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: sel ? Colors.transparent : c.border)),
-                          child: Text(f, style: GoogleFonts.inter(fontSize: 12,
-                              fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                              color: sel ? Colors.white : c.textMuted)))));
-                    }).toList())),
-            const SizedBox(height: 10),
-            Row(children: [
-              Expanded(child: Text(
-                _histStart != null && _histEnd != null
-                    ? '${DateFormat('dd MMM yyyy').format(_histStart!)} — ${DateFormat('dd MMM yyyy').format(_histEnd!)}'
-                    : 'Semua waktu',
-                style: GoogleFonts.inter(fontSize: 12, color: c.textMuted))),
-              Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                child: Text('${filtered.length} data • ${total.toStringAsFixed(1)} KG',
-                    style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primary))),
-            ]),
-          ]),
-        )),
-      ),
-      Expanded(child: filtered.isEmpty
-          ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(Icons.inbox_rounded, size: 56, color: c.textMuted), const SizedBox(height: 12),
-              Text('Tidak ada data pada periode ini', style: GoogleFonts.inter(color: c.textMuted)),
-            ]))
-          : Center(child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1400),
-              child: isWide
-                  ? GridView.builder(
-                      padding: const EdgeInsets.all(16),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: isWide ? 2 : 1, // Actually if constraints > 1000 then 2, maybe let's fix it simply
-                        mainAxisSpacing: 8, crossAxisSpacing: 12, mainAxisExtent: 96),
-                      itemCount: filtered.length,
-                      itemBuilder: (_, i) => _harvestCard(filtered[i], c))
-                  : ListView.builder(padding: const EdgeInsets.all(16), itemCount: filtered.length,
-                      itemBuilder: (_, i) => _harvestCard(filtered[i], c)),
-            ))),
-    ]);
+    return HistoryTableView(
+      harvests: filtered,
+      lands: _lands,
+      c: c,
+      onEdit: (h) async {
+        final r = await Navigator.push(context, MaterialPageRoute(builder: (_) => EditHarvestForm(harvest: h)));
+        if (r == true) _loadData();
+      },
+      onExport: () => _showFmtDialog(filtered, 'Histori Panen'),
+      landFilter: _histLandFilter,
+      onLandFilterChanged: (v) => setState(() => _histLandFilter = v),
+      dateFilter: _histFilter,
+      onDateFilterChanged: (v) {
+        if (v == 'Kustom') {
+          _pickHistDateRange();
+        } else {
+          _applyHistFilter(v);
+        }
+      },
+    );
   }
 
   Widget _historyRekapView(bool isWide, DColors c) {
@@ -1014,8 +930,8 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
       switch (f) {
         case 'Semua': _histStart = null; _histEnd = null; break;
         case '7 Hari': _histStart = now.subtract(const Duration(days: 7)); _histEnd = now; break;
-        case '1 Bulan': _histStart = DateTime(now.year, now.month - 1, now.day); _histEnd = now; break;
-        case '3 Bulan': _histStart = DateTime(now.year, now.month - 3, now.day); _histEnd = now; break;
+        case '1 Bulan': _histStart = now.subtract(const Duration(days: 30)); _histEnd = now; break;
+        case '3 Bulan': _histStart = now.subtract(const Duration(days: 90)); _histEnd = now; break;
         case '6 Bulan': _histStart = now.subtract(const Duration(days: 180)); _histEnd = now; break;
         case '1 Tahun': _histStart = now.subtract(const Duration(days: 365)); _histEnd = now; break;
         case 'Kustom': _pickHistDateRange(); return;
@@ -1513,7 +1429,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(children: [
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(land.name, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white)),
+                Text(land.name, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: c.textPrimary)),
                 const SizedBox(height: 4),
                 Text('${land.treeCount} Batang  •  Pemilik ${owner?.name ?? 'Tidak diketahui'}', style: GoogleFonts.inter(fontSize: 10, color: c.textMuted), overflow: TextOverflow.ellipsis),
               ])),
@@ -1540,7 +1456,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
             child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Text('TOTAL PANEN', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w700, color: c.textMuted)),
               Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-                Text(total.toStringAsFixed(1), style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.white)),
+                Text(total.toStringAsFixed(1), style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 18, color: c.textPrimary)),
                 const SizedBox(width: 4),
                 Text('KG', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.cyan)),
               ]),
@@ -1715,7 +1631,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
             ]),
             const SizedBox(height: 12),
             Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-              Flexible(child: Text(val, style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800), overflow: TextOverflow.ellipsis)),
+              Flexible(child: Text(val, style: GoogleFonts.inter(color: c.textPrimary, fontSize: 18, fontWeight: FontWeight.w800), overflow: TextOverflow.ellipsis)),
               if (unit.isNotEmpty) ...[
                  const SizedBox(width: 4),
                  Text(unit, style: GoogleFonts.inter(color: highlight ? AppColors.cyan : c.textSecondary, fontSize: 11, fontWeight: FontWeight.w600)),
@@ -2090,14 +2006,14 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
             const SizedBox(height: 12),
             Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Row(children: [
               Expanded(child: DropdownButtonFormField<int>(
-                value: selM,
+                initialValue: selM,
                 items: List.generate(12, (i) => DropdownMenuItem(value: i+1, child: Text('Bulan ${i+1}'))),
                 onChanged: (v) { setDialogState(() { selM = v!; loadForPeriod(); calc(); }); },
                 decoration: const InputDecoration(labelText: 'Bulan', border: OutlineInputBorder()),
               )),
               const SizedBox(width: 10),
               Expanded(child: DropdownButtonFormField<int>(
-                value: selY,
+                initialValue: selY,
                 items: List.generate(10, (i) {
                   final y = DateTime.now().year - 5 + i;
                   return DropdownMenuItem(value: y, child: Text('$y'));
